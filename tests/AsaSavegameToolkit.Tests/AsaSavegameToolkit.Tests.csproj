@@ -1,0 +1,33 @@
+﻿<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <TargetFramework>net10.0</TargetFramework>
+    <LangVersion>latest</LangVersion>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+    <Packable>false</Packable>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <Compile Remove="Plumbing\Properties\BoolPropertyTests.cs" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <None Include="Plumbing\Properties\BoolPropertyTests.cs" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <PackageReference Include="MSTest" Version="4.0.1" />
+    <PackageReference Include="FracturedJson" Version="4.0.2" />
+    <PackageReference Include="Moq" Version="4.20.72" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\..\src\AsaSavegameToolkit.csproj" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <Using Include="Microsoft.VisualStudio.TestTools.UnitTesting" />
+  </ItemGroup>
+
+</Project>

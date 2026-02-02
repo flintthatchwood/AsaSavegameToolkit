@@ -1,0 +1,108 @@
+name: Release
+
+on:
+  workflow_dispatch:
+    inputs:
+      prod:
+        description: 'Production release'
+        required: true
+        type: boolean
+
+permissions:
+  contents: write
+  id-token: write
+
+jobs:
+  build-and-release:
+    name: Build, test and release
+    runs-on: ubuntu-latest
+    environment: production
+
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+
+    - name: Setup .NET
+      uses: actions/setup-dotnet@v4
+      with:
+        dotnet-version: '10.0.x'
+
+    - name: NuGet login (OIDC → temp API key)
+      uses: NuGet/login@v1
+      id: login
+      with:
+        user: ${{ secrets.NUGET_USER }}
+
+    - name: Restore dependencies
+      run: dotnet restore
+
+    - name: Run tests
+      run: dotnet test
+
+    - name: Get version
+      id: get_version
+      shell: pwsh
+      run: |
+        $csprojPath = "src/AsaSavegameToolkit.csproj"
+        
+        $args = @(
+          'build'
+          $csprojPath
+          '-getProperty:Version'
+        )
+
+        if ($env:INPUTS_PROD -eq 'true') {
+          $versionSuffix = ""
+        } else {
+          $runNumber = $env:GITHUB_RUN_NUMBER
+          $versionSuffix = "alpha.$runNumber"
+
+          $args += '--version-suffix'
+          $args += $versionSuffix
+        }
+
+        $version = dotnet @args
+        
+        echo "version=$version" >> $env:GITHUB_OUTPUT
+        echo "version_suffix=$versionSuffix" >> $env:GITHUB_OUTPUT
+        echo "Building version: $version"
+      env:
+        INPUTS_PROD: ${{ github.event.inputs.Prod }}
+
+    - name: Pack library
+      shell: pwsh
+      run: |
+        $args = @(
+          'pack'
+          '--configuration', 'Release'
+          '--output', '.work/dist'
+          '--property:ContinuousIntegrationBuild=true'
+        )
+        
+        if ("${{ steps.get_version.outputs.version_suffix }}" -ne "") {
+          $args += '--version-suffix'
+          $args += "${{ steps.get_version.outputs.version_suffix }}"
+        }
+        
+        dotnet @args
+
+    - name: Upload nuget packages
+      uses: actions/upload-artifact@v4
+      with:
+        name: packages
+        path: '.work/dist/*.nupkg'
+
+    - name: Create GitHub Release
+      if: github.event.inputs.Prod == 'true'
+      uses: softprops/action-gh-release@v1
+      with:
+        tag_name: v${{ steps.get_version.outputs.version }}
+        name: Release ${{ steps.get_version.outputs.version }}
+        files: .work/dist/*.nupkg
+        draft: false
+        prerelease: false
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+    - name: Push to NuGet
+      run: dotnet nuget push .work/dist/*.nupkg --source https://api.nuget.org/v3/index.json --api-key ${{ steps.login.outputs.NUGET_API_KEY }}

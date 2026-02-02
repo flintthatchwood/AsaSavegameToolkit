@@ -1,0 +1,10 @@
+.work/
+bin/
+obj/
+.vs/
+TestResults/
+tests/assets/version_*/*/game/
+*.user
+*.suo
+*.log
+*.tmp

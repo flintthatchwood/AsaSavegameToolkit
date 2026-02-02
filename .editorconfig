@@ -1,0 +1,32 @@
+﻿[*.cs]
+# CA1873: Avoid potentially expensive logging
+dotnet_diagnostic.CA1873.severity = none
+
+# IDE0290: Use primary constructor
+dotnet_diagnostic.IDE0290.severity = none
+
+dotnet_naming_symbols.constant_field.applicable_kinds = field
+dotnet_naming_symbols.constant_field.required_modifiers = const
+
+dotnet_naming_symbols.static_fields.applicable_kinds = field
+dotnet_naming_symbols.static_fields.required_modifiers = static
+
+dotnet_naming_symbols.private_fields.applicable_kinds = field
+dotnet_naming_symbols.private_fields.applicable_accessibilities = private
+
+dotnet_naming_style.pascal_case.capitalization = pascal_case
+
+dotnet_naming_style.underscored_camel_case.required_prefix = _
+dotnet_naming_style.underscored_camel_case.capitalization = camel_case
+
+dotnet_naming_rule.constant_fields_should_be_pascal_case.symbols = constant_field
+dotnet_naming_rule.constant_fields_should_be_pascal_case.style = pascal_case
+dotnet_naming_rule.constant_fields_should_be_pascal_case.severity = suggestion
+
+dotnet_naming_rule.static_fields_should_be_pascal_case.symbols = static_fields
+dotnet_naming_rule.static_fields_should_be_pascal_case.style = pascal_case
+dotnet_naming_rule.static_fields_should_be_pascal_case.severity = suggestion
+
+dotnet_naming_rule.private_fields_should_be_underscored_camel_case.symbols = private_fields
+dotnet_naming_rule.private_fields_should_be_underscored_camel_case.style = underscored_camel_case
+dotnet_naming_rule.private_fields_should_be_underscored_camel_case.severity = suggestion

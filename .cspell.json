@@ -1,0 +1,48 @@
+{
+  "$schema": "https://raw.githubusercontent.com/streetsidesoftware/cspell/main/packages/cspell-types/cspell.schema.json",
+  "version": "0.2",
+  "language": "en",
+  "useGitignore": true,
+  "dictionaries": [
+    "arkSpecies",
+    "arkTerms",
+    "en",
+    "en-US",
+    "softwareTerms",
+    "csharp",
+    "powershell"
+  ],
+  "words": [
+    "accessibilities",
+    "customitemdatas",
+    "dinos",
+    "finalizers",
+    "ints",
+    "kaitai",
+  ],
+  "dictionaryDefinitions": [
+    {
+      "name": "arkTerms",
+      "words": [
+        "cryo",
+        "cryopod",
+        "cryopodded",
+        "cryopods",
+      ]
+    },
+    {
+      "name": "arkSpecies",
+      "words": [
+        "lystrosaurus",
+        "yutyrannus",
+      ]
+    }
+  ],
+  "ignoreWords": [
+  ],
+  "ignorePaths": [
+    "./docs/parsed-maps"
+  ],
+  "allowCompoundWords": true,
+  "flagWords": []
+}

@@ -1,0 +1,4 @@
+{
+  "AssetsDirectory": "./tests/assets",
+  "OutputDirectory": "./.work"
+}

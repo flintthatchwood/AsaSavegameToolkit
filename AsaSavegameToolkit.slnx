@@ -1,0 +1,8 @@
+<Solution>
+  <Project Path="src/AsaSavegameToolkit.csproj" />
+  <Project Path="tests/AsaSavegameToolkit.Tests/AsaSavegameToolkit.Tests.csproj" />
+  <Folder Name="/Solution Items/">
+    <File Path=".editorconfig" />
+    <File Path="testsettings.json" />
+  </Folder>
+</Solution>
