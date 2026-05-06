@@ -18,7 +18,8 @@ public class SaveHeaderRecord
     /// Used throughout the save file to reduce duplication.
     /// </summary>
     public required Dictionary<int, string> NameTable { get; init; }
-    
+    public string MapName { get; private set; }
+
     /// <summary>
     /// Reads a SaveHeader from the archive for save version 14+ (current format).
     /// Automatically delegates to ReadPre14() for older save versions.
@@ -34,13 +35,17 @@ public class SaveHeaderRecord
         {
             return ReadPre14(archive, saveVersion);
         }
-        
+
         // Version 14+ format
         archive.ReadInt64(); // Unknown1 + Unknown2 (8 bytes in v14+)
         
         // Read name table offset
         var nameTableOffset = archive.ReadInt32();
         var gameTime = archive.ReadDouble();
+
+        // Read map name
+        _ = archive.ReadBytes(8);
+        var mapName = archive.ReadString()??"Unknown";
 
         // Skip to name table
         archive.Position = nameTableOffset;
@@ -50,6 +55,7 @@ public class SaveHeaderRecord
         
         return new SaveHeaderRecord
         {
+            MapName = mapName,
             SaveVersion = saveVersion,
             GameTime = gameTime,
             NameTable = nameTable
@@ -67,6 +73,19 @@ public class SaveHeaderRecord
         var nameTableOffset = archive.ReadInt32();
         var gameTime = archive.ReadDouble();
         
+        if(saveVersion > 11)
+        {
+            _ = archive.ReadInt32();
+        }
+
+        //game files
+        var dataCount = archive.ReadInt32();
+        var mapName = archive.ReadString()??"Unknown";
+
+
+
+
+
         // Skip to name table
         archive.Position = nameTableOffset;
         
@@ -75,6 +94,7 @@ public class SaveHeaderRecord
         
         return new SaveHeaderRecord
         {
+            MapName = mapName,
             SaveVersion = saveVersion,
             GameTime = gameTime,
             NameTable = nameTable
