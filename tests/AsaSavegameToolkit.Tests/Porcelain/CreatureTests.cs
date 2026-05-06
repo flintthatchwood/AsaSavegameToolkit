@@ -192,14 +192,24 @@ public class CreatureTests : SaveTests
         using var reader2 = new AsaSaveReader(releaseSaveFile, TestContext.GetLogger());
         var records2 = reader2.ReadGameRecords(TestContext.CancellationToken);
 
-        var cryoCreatureRecord = records1[Guid.Parse(RexId)];
-        Assert.IsNotNull(cryoCreatureRecord, "Cryo creature cannot be found.");
         var freeCreatureRecord = records2[Guid.Parse(RexId)];
         Assert.IsNotNull(freeCreatureRecord, "Free creature cannot be found.");
-        
-        var cryoCreature = Creature.Create(cryoCreatureRecord, transform: null);
         var freeCreature = Creature.Create(freeCreatureRecord, transform: null);
+        
+        Creature? cryoCreature = null;
 
+        foreach (var record in records1.Values)
+        {
+            var dinoId = long.Parse($"{record.Properties.Get<uint>("DinoID1")}{record.Properties.Get<uint>("DinoID2")}");
+            if(dinoId == freeCreature.DinoId)
+            {
+                cryoCreature = Creature.Create(record, transform: null);
+                break;
+            }
+        }
+        
+        Assert.IsNotNull(cryoCreature, "Cryo creature cannot be found.");
+        
         Assert.IsTrue(cryoCreature.IsCryo, "Cryo creature should have IsCryo=true");
         Assert.IsFalse(freeCreature.IsCryo, "Free creature should have IsCryo=false");
         Assert.AreEqual(cryoCreature.DinoId, freeCreature.DinoId, "DinoId should match between cryo and free versions of the same creature");

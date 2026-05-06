@@ -244,6 +244,8 @@ public static class GameObjectExtensions
 
     public static long CreateDinoId(int id1, int id2)
     {
-        return ((long)id1 << 32) | (id2 & 0xFFFFFFFFL);
+        return long.Parse($"{id1}{id2}");
+
+        //return ((long)id1 << 32) | (id2 & 0xFFFFFFFFL);
     }   
 }
