@@ -12,6 +12,7 @@ namespace AsaSavegameToolkit.Porcelain;
 public class AsaSaveGame
 {
     public int SaveVersion { get; set; }
+    public double GameTime { get; set; }
 
     public required IDictionary<Guid, Player> Players { get; set; }
     public required IDictionary<Guid, Tribe> Tribes { get; set; }
@@ -212,6 +213,7 @@ public class AsaSaveGame
         return new AsaSaveGame
         {
             SaveVersion = header.SaveVersion,
+            GameTime = header.GameTime,
             Players = players,
             Tribes = tribes,
             TamedCreatures = tamedCreatures,
