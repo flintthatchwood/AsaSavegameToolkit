@@ -5,8 +5,10 @@ using AsaSavegameToolkit.Plumbing.Records;
 using AsaSavegameToolkit.Plumbing.Utilities;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Logging.Abstractions;
+using Microsoft.VisualBasic;
 using System.Collections.Concurrent;
 using System.Data;
+using System.Text.Json.Nodes;
 using System.Threading;
 using System.Threading.Tasks;
 
@@ -26,16 +28,63 @@ public class AsaSaveGame
     public required IDictionary<Guid, Structure> Structures { get; set; }
     public required IDictionary<Guid, DroppedItem> DroppedItems { get; set; }
 
+    private static Dictionary<string,MapDefinition> MapDefinitions { get; set; } = new Dictionary<string,MapDefinition>();
+
+    private static void ReadMapDefinitions()
+    {
+        MapDefinitions = new Dictionary<string,MapDefinition>();
+        
+        string mapDefinitionFilename = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "maps.json");
+        if (!File.Exists(mapDefinitionFilename)) return;// no maps configured
+
+        try
+        {
+            string fileContent = File.ReadAllText(mapDefinitionFilename);
+            JsonObject? mapConfig = (JsonObject?)JsonObject.Parse(fileContent);
+            if (mapConfig != null)
+            {
+                var mapList = mapConfig["maps"]?.AsArray();
+                if(mapList==null) return; //no maps found
+
+                foreach (var mapData in mapList) 
+                {
+                    var mapDefinition = new MapDefinition();
+                    mapDefinition.Name = mapData["MapName"].GetValue<string>().ToLower();
+                    mapDefinition.DisplayName = mapData["DisplayName"].GetValue<string>(); 
+                    mapDefinition.ImageFile = mapData["ImageFile"].GetValue<string>();
+                    mapDefinition.ScaleX = mapData["ScaleX"].GetValue<double>();
+                    mapDefinition.ScaleY = mapData["ScaleY"].GetValue<double>();
+                    mapDefinition.OffsetX = mapData["OffsetX"].GetValue<double>();
+                    mapDefinition.OffsetY = mapData["OffsetY"].GetValue<double>();
+
+                    MapDefinitions.Add(mapDefinition.Name, mapDefinition);
+                }
+            }
+
+        }
+        catch(Exception ex)
+        {
+
+        }
+    }
+
     public static AsaSaveGame ReadFrom(string path, ILogger? logger = null, AsaReaderSettings? settings = null, CancellationToken cancellationToken = default)
     {
         logger ??= NullLogger.Instance;
-
-
         var saveFileTimestamp = File.GetLastWriteTimeUtc(path);
 
         using var reader = new AsaSaveReader(path, logger, settings ?? AsaReaderSettings.None);
 
         var header = reader.ReadSaveHeader(cancellationToken);
+
+        ReadMapDefinitions();
+
+        MapDefinition? mapDefinition = null;
+        if (MapDefinitions.ContainsKey(header.MapName.ToLower()))
+        {
+            mapDefinition = MapDefinitions[header.MapName.ToLower()];
+        }
+
         var gameObjects = reader.ReadGameRecords(cancellationToken);
         var transforms = reader.ReadActorTransforms(cancellationToken).Transforms;
 
@@ -141,7 +190,7 @@ public class AsaSaveGame
                     structure.IngestInventory(inventory);
                 }
 
-
+                structure.UpdateGPSLocation(mapDefinition);
                 return structure;
             });
 
@@ -176,7 +225,7 @@ public class AsaSaveGame
                 }
 
                 var player = Player.Create(r.Value, actorLocation);
-
+                
                 if (characterRecord != null)
                 {
                     player.IngestCharacterRecord(characterRecord);
@@ -197,7 +246,7 @@ public class AsaSaveGame
                             {
                                 if (itemReference.ObjectId == Guid.Empty || !itemRecords.ContainsKey(itemReference.ObjectId))
                                 {
-                                    continue; //skip empty slots
+                                    continue; //skip empty slots or those we can't find a matching item
                                 }
                                 var itemRecord = itemRecords[itemReference.ObjectId];
                                 var item = Item.Create(itemRecord);
@@ -225,6 +274,7 @@ public class AsaSaveGame
                     player.IngestStatusRecord(statusRecord);
 
                 player.RefreshTimestamps(saveFileTimestamp, header.GameTime);
+                player.UpdateGPSLocation(mapDefinition);
 
                 return player;
             });
@@ -250,6 +300,7 @@ public class AsaSaveGame
                 }
 
                 var creature = Creature.Create(r.Value, transforms.TryGetValue(locationKey, out var t) ? t : null);
+                
                 var statusComponentRef = (ObjectReference?)r.Value.Properties.Get<ObjectProperty>("MyCharacterStatusComponent")?.Value;
                 if (statusComponentRef != null)
                 {
@@ -325,7 +376,7 @@ public class AsaSaveGame
                 }
 
                 creature.RefreshTimestamps(saveFileTimestamp, header.GameTime);
-
+                creature.UpdateGPSLocation(mapDefinition);
                 return creature;
             });
 
@@ -346,6 +397,7 @@ public class AsaSaveGame
                     var referencedObject = itemRecords[myObjectRef.ObjectId];
                     var referencedItem = Item.Create(referencedObject);
                     droppedItem.IngestItem(referencedItem);
+                    droppedItem.UpdateGPSLocation(mapDefinition);
                 }
 
                 return droppedItem;

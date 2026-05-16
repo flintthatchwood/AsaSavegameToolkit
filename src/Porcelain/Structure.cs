@@ -21,6 +21,8 @@ public class Structure
     public FVector? Location { get;  set; }
     public FQuat? Rotation { get;  set; }
 
+    public FVector2D? GPSLocation { get; private set; }
+
     internal static Structure Create(GameObjectRecord r, ActorTransform? transform)
     {
         var className = r.GetClassName();
@@ -74,5 +76,13 @@ public class Structure
         {
             LastDeactivatedTimestamp = saveTimestamp.AddSeconds(LastDeactivatedGameTime - gameTime);
         }
+    }
+
+    internal void UpdateGPSLocation(MapDefinition? map)
+    {
+        if (map == null) return;
+        if (Location == null) return; //no location to calcaulte gps co-ords
+
+        GPSLocation = new FVector2D(map.GetLongitude(Location.Value.X), map.GetLatitude(Location.Value.Y));
     }
 }

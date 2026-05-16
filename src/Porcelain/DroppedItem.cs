@@ -1,4 +1,5 @@
-﻿using AsaSavegameToolkit.Plumbing.Records;
+﻿using AsaSavegameToolkit.Plumbing.Primitives;
+using AsaSavegameToolkit.Plumbing.Records;
 using AsaSavegameToolkit.Plumbing.Utilities;
 using System;
 using System.Collections.Generic;
@@ -19,10 +20,12 @@ namespace AsaSavegameToolkit.Porcelain
         public int? TargetingTeam { get; set; } 
         public Item? Item { get; set; }
 
-        public static DroppedItem Create(GameObjectRecord record, ActorTransform? location = default)
+        public FVector? Location { get; set; }
+        public FVector2D? GPSLocation { get; set; }
+
+        public static DroppedItem Create(GameObjectRecord record, ActorTransform? location = null)
         {
             var properties = record.Properties;
-
             var className = record.GetClassName();
             var originalCreationTime = record.Properties.Get<double>("OriginalCreationTime");
             var droppedByName = record.Properties.Get<string>("DroppedByName");
@@ -35,13 +38,21 @@ namespace AsaSavegameToolkit.Porcelain
                 OriginalCreationTime = originalCreationTime,
                 DroppedByName = droppedByName,
                 DroppedByPlayerId = (long)droppedByPlayerId,
-                TargetingTeam = targetingTeam
+                TargetingTeam = targetingTeam,
+                Location = location!=null?location.Value.Location:null
             };
         }
 
-        public void IngestItem(Item item)
+        internal void IngestItem(Item item)
         {           
             Item = item;
+        }
+
+        internal void UpdateGPSLocation(MapDefinition? map)
+        {
+            if(map == null) return;
+            if (Location == null) return; //no location to calcaulte gps co-ords
+            GPSLocation = new FVector2D(map.GetLongitude(Location.Value.X), map.GetLatitude(Location.Value.Y));
         }
     }
 }

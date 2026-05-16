@@ -171,8 +171,7 @@ namespace AsaSavegameToolkit
                 GeneTraits = geneTraits,
                 IsFemale = genderOverride == 2,
                 RandomMutationsFemale = randomMutationsFemale,
-                RandomMutationsMale = randomMutationsMale,
-                Location = location ?? default
+                RandomMutationsMale = randomMutationsMale
             };
 
         }

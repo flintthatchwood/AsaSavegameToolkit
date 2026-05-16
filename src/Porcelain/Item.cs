@@ -49,12 +49,8 @@ public class Item
     public byte[] BaseStats { get; set; } = [];
     public int[] Colors { get; set; } = [];
 
-    /// <summary>
-    ///
-    /// </summary>
-    public ActorTransform Location { get; set; }
 
-    internal static Item Create(GameObjectRecord record, ActorTransform? location = default)
+    internal static Item Create(GameObjectRecord record)
     {
         var properties = record.Properties;
 
@@ -70,8 +66,7 @@ public class Item
                 Quantity = 1,
                 IsBlueprint = false,
                 Durability = 0,
-                ItemRating = 0,
-                Location = location ?? default
+                ItemRating = 0
             };
         }
 
@@ -84,14 +79,14 @@ public class Item
             }
 
             if(eggLevel>0)
-                return FertileEggItem.Create(record, location);
+                return FertileEggItem.Create(record);
         }
 
         //crafted items
         var crafterTribeName = properties.Get<string>("CrafterTribeName") ?? "";
         var crafterCharacterName = properties.Get<string>("CrafterCharacterName") ?? "";
         if (crafterTribeName.Length > 0 || crafterCharacterName.Length > 0)
-            return CraftedItem.Create(record, location);
+            return CraftedItem.Create(record);
 
 
         //all other items
@@ -173,8 +168,7 @@ public class Item
             Durability = savedDurability,
             ItemRating = itemRating,
             BaseStats = baseStatValues,
-            Colors = itemColors,
-            Location = location ?? default
+            Colors = itemColors
         };
     }
 

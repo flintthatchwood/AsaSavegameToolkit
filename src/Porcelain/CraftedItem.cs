@@ -110,8 +110,7 @@ namespace AsaSavegameToolkit.Porcelain
                 CrafterCharacterName = crafterCharacterName,
                 CrafterTribeName = crafterTribeName,
                 CraftingSkill = craftingSkill,
-                CraftingSkillBonus = craftingSkillBonus,
-                Location = location ?? default
+                CraftingSkillBonus = craftingSkillBonus
             };
         }
     }

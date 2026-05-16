@@ -1,6 +1,7 @@
 
 using System.Collections;
 using System.ComponentModel;
+using System.Numerics;
 using System.Transactions;
 using AsaSavegameToolkit.Plumbing.Primitives;
 using AsaSavegameToolkit.Plumbing.Properties;
@@ -90,6 +91,7 @@ public class Creature
     public string[]? ProductionResources { get; set; }
 
     public FVector? Location { get;  set; }
+    public FVector2D? GPSLocation { get; set; }
 
     public FQuat? Rotation { get; set; }
     public Inventory? Inventory { get; internal set; }
@@ -154,4 +156,11 @@ public class Creature
         }
     }
 
+    internal void UpdateGPSLocation(MapDefinition? map)
+    {
+        if(map== null) return;
+        if (Location == null) return; //no location to calcaulte gps co-ords
+
+        GPSLocation = new FVector2D(map.GetLongitude(Location.Value.X), map.GetLatitude(Location.Value.Y));
+    }
 }

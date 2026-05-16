@@ -90,7 +90,7 @@ public class Player
     /// Gets the rotation represented by a quaternion, if available.
     /// </summary>
     public FQuat? Rotation { get; private set; }
-
+    public FVector2D? GPSLocation { get; private set; }
 
     public override string ToString() => PlayerName ?? string.Empty;
 
@@ -459,5 +459,13 @@ public class Player
         {
             LastLoginTimestamp = saveTimestamp.AddSeconds(LastLoginGameTime.Value - gameTime);
         }
+    }
+
+    internal void UpdateGPSLocation(MapDefinition? map)
+    {
+        if (map == null) return;
+        if (Location == null) return; //no location to calcaulte gps co-ords
+
+        GPSLocation = new FVector2D(map.GetLongitude(Location.Value.X), map.GetLatitude(Location.Value.Y));
     }
 }
