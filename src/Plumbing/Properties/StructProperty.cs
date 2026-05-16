@@ -1,5 +1,8 @@
 using AsaSavegameToolkit.Plumbing.Primitives;
+using AsaSavegameToolkit.Plumbing.Readers;
 using AsaSavegameToolkit.Plumbing.Records;
+using System.Drawing;
+using System.Reflection.Metadata.Ecma335;
 
 namespace AsaSavegameToolkit.Plumbing.Properties;
 
@@ -118,7 +121,20 @@ public class StructProperty : Property<object>
     
     public static StructProperty Read(Readers.AsaArchive archive, PropertyTag tag)
     {
-        var guid = ReadStructGuid(archive, tag);
+        Guid? guid = null;
+        if (archive.IsArkFile)
+        {
+            var structValue = ReadValue(archive, tag);
+            return new StructProperty
+            {
+                Tag = tag,
+                StructGuid = guid,
+                Value = structValue
+            };
+        }
+
+
+        guid = ReadStructGuid(archive, tag);
         var value = ReadValue(archive, tag);
 
         return new StructProperty
@@ -128,7 +144,8 @@ public class StructProperty : Property<object>
             Value = value
         };
     }
-    
+
+
     /// <summary>
     /// Reads the optional struct GUID (v13 only).
     /// In v13 non-array structs: 16 bytes (usually all zeros).
@@ -197,6 +214,7 @@ public class StructProperty : Property<object>
             "Color" => ReadColor(archive),
             "Vector2D" => ReadVector2D(archive),
             "UniqueNetIdRepl" => ReadUniqueNetIdRepl(archive),
+            "IntPoint" => ReadIntPoint(archive),
 
             // Custom ark structs with their own readers - read using custom logic
             "CustomItemData" => CustomItemDataRecord.Read(archive),
@@ -204,5 +222,11 @@ public class StructProperty : Property<object>
             // Unknown struct types - read as generic property bags
             _ => ReadGenericStruct(archive) // Fallback to generic
         };
+    }
+
+    private static FIntPoint ReadIntPoint(AsaArchive archive)
+    {
+        return new FIntPoint(archive.ReadInt32(), archive.ReadInt32());
+
     }
 }

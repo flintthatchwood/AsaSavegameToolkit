@@ -1,0 +1,121 @@
+{
+  "maps": [
+    {
+      "DisplayName": "The Island",
+      "MapName": "theisland_wp",
+      "ImageFile": "map_theisland_wp.jpg",
+      "OffsetY": 50.0,
+      "ScaleY": 6850.0,
+      "OffsetX": 50.0,
+      "ScaleX": 6850.0
+    },
+    {
+      "DisplayName": "The Center",
+      "MapName": "thecenter_wp",
+      "ImageFile": "map_thecenter_asa.jpg",
+      "OffsetY": 32.5,
+      "ScaleY": 10380.52,
+      "OffsetX": 50.5,
+      "ScaleX": 10374.29
+    },
+    {
+      "DisplayName": "Scorched Earth",
+      "MapName": "scorchedearth_wp",
+      "ImageFile": "map_scorchedearth_wp.jpg",
+      "OffsetY": 50.0,
+      "ScaleY": 8000.0,
+      "OffsetX": 50.0,
+      "ScaleX": 8000.0
+    },
+    {
+      "DisplayName": "Aberration",
+      "MapName": "aberration_wp",
+      "ImageFile": "map_aberration_wp.png",
+      "OffsetY": 50.0,
+      "ScaleY": 8000.0,
+      "OffsetX": 50.0,
+      "ScaleX": 8000.0
+    },
+    {
+      "DisplayName": "Extinction",
+      "MapName": "extinction_wp",
+      "ImageFile": "map_extinction_wp.png",
+      "OffsetY": 50.0,
+      "ScaleY": 6850.0,
+      "OffsetX": 50.0,
+      "ScaleX": 6850.0
+    },
+    {
+      "DisplayName": "Amissa",
+      "MapName": "amissa_wp",
+      "ImageFile": "map_grid.jpg",
+      "OffsetY": 46.9,
+      "ScaleY": 11375.0,
+      "OffsetX": 48.1,
+      "ScaleX": 11400
+    },
+    {
+      "DisplayName": "Svartalfheim",
+      "MapName": "Svartalfheim_wp",
+      "ImageFile": "map_svartalfheim_wp.png",
+      "OffsetY": 50.0,
+      "ScaleY": 4055.0,
+      "OffsetX": 50.0,
+      "ScaleX": 4055.0
+    },
+    {
+      "DisplayName": "Forglar",
+      "MapName": "forglar_wp",
+      "ImageFile": "map_forglar.jpg",
+      "OffsetY": 61.4,
+      "ScaleY": 7150.0,
+      "OffsetX": 69.8,
+      "ScaleX": 7945.0
+    },
+    {
+      "DisplayName": "Insaluna",
+      "MapName": "insaluna_wp",
+      "ImageFile": "map_grid.jpg",
+      "OffsetY": 50.0,
+      "ScaleY": 9400.0,
+      "OffsetX": 50.0,
+      "ScaleX": 9400.0
+    },
+    {
+      "DisplayName": "Temptress Lagoon",
+      "MapName": "temptress_wp",
+      "ImageFile": "map_grid.jpg",
+      "OffsetY": 50.0,
+      "ScaleY": 8150.0,
+      "OffsetX": 50.0,
+      "ScaleX": 8150.0
+    },
+    {
+      "DisplayName": "Reverence",
+      "MapName": "reverence_wp",
+      "ImageFile": "map_grid.jpg",
+      "OffsetY": 50.0,
+      "ScaleY": 8125.0,
+      "OffsetX": 50.0,
+      "ScaleX": 8125.0
+    },
+    {
+      "DisplayName": "Nyrandil",
+      "MapName": "nyrandil.ark",
+      "ImageFile": "map_grid.jpg",
+      "OffsetY": 50.0,
+      "ScaleY": 8175.0,
+      "OffsetX": 50.0,
+      "ScaleX": 8175.0
+    },
+    {
+      "DisplayName": "Astraeos",
+      "MapName": "astraeos_wp",
+      "ImageFile": "map_astraeos.png",
+      "OffsetY": 50.0,
+      "ScaleY": 16000.0,
+      "OffsetX": 50.0,
+      "ScaleX": 16000.0
+    }
+  ]
+}

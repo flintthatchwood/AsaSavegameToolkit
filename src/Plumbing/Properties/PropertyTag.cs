@@ -1,4 +1,11 @@
 using AsaSavegameToolkit.Plumbing.Primitives;
+using AsaSavegameToolkit.Plumbing.Readers;
+using System;
+using System.ComponentModel.DataAnnotations;
+using System.Drawing;
+using System.Reflection;
+using System.Runtime.CompilerServices;
+using System.Xml.Linq;
 
 namespace AsaSavegameToolkit.Plumbing.Properties;
 
@@ -84,6 +91,11 @@ public class PropertyTag
     /// </summary>
     public static PropertyTag? Read(Readers.AsaArchive archive)
     {
+        if (archive.IsArkFile)
+        {
+            return ReadArkFile(archive);
+        }
+
         // Early delegation for older versions
         if (archive.SaveVersion < 14)
         {
@@ -142,6 +154,288 @@ public class PropertyTag
         };
     }
     
+
+    private static PropertyTag? ReadArkFile(Readers.AsaArchive archive)
+    {
+        var start = archive.Position;
+
+        if(archive.SaveVersion < 7)
+        {
+            return ReadArkFilePre7(archive);
+        }
+
+        var name = archive.ReadString();
+        if (name == "None")
+        {
+            return null;
+        }
+        var type = archive.ReadString();
+        var index = 0;  
+        var size = 0;
+
+        byte checkByte = 0x0;
+        switch (type)
+        {
+            case "ByteProperty":
+
+                var byteType = archive.ReadInt32(); 
+
+                //var enumName = archive.ReadString();
+                if (byteType == 0)
+                {
+                    var byteSize = archive.ReadInt32();
+                    var flags = archive.ReadByte();
+
+                    FPropertyTypeName byteTypeName = null;
+                    // Simple byte, no enum
+                    byteTypeName = FPropertyTypeName.Create(new FName(0, 0, type));
+
+                    if (flags == 1)
+                    {
+                        index = archive.ReadInt32();
+                    }
+
+                    return new PropertyTag
+                    {
+                        Name = new FName(0, 0, name),
+                        Type = byteTypeName,
+                        Size = size,
+                        ArrayIndex = index,
+                        Flags = flags
+                    };
+                }
+
+                var enumName = archive.ReadString();
+                var b1 = archive.ReadInt32(); //unknown?
+                var classPath = archive.ReadString();
+                _ = archive.ReadBytes(9);
+
+                FPropertyTypeName subType = FPropertyTypeName.Create(new FName(0, 0, type), new FName(0,0,enumName));
+                return new PropertyTag
+                {
+                    Name = new FName(0, 0, name),
+                    Type = subType,
+                    Size = size,
+                    ArrayIndex = index,
+                    Flags = 0
+                };
+
+            case "StructProperty":
+                var someInt= archive.ReadInt32();
+                var structName = archive.ReadString();
+
+                var someOtherInt = archive.ReadInt32();
+                var structPath = archive.ReadString();
+
+                _ = archive.ReadBytes(4); //padding?
+                var structSizeBytes = archive.ReadInt32();
+                var arrayMarker = archive.ReadByte();
+
+                switch (structName)
+                {
+                    case "Quat":
+                    case "Vector":
+                    case "Rotator":
+                    case "LinearColor":
+                    case "Color":
+                    case "Vector2D":
+                    case "UniqueNetIdRepl":
+                        if (arrayMarker % 8 != 0)
+                            index = archive.ReadInt32();
+                        break;
+
+                    default:
+                        if (arrayMarker == 1)
+                            index= archive.ReadInt32();
+
+                        break;
+                }
+
+                FPropertyTypeName structType = FPropertyTypeName.Create(new FName(0,0,type), new FName(0, 0, structName));
+
+                return new PropertyTag
+                {
+                    Name = new FName(0, 0, name),
+                    Type = structType,
+                    ArrayIndex = index,
+                    Flags = arrayMarker,
+                    Size = structSizeBytes
+                };
+
+            case "ArrayProperty":
+                var arrayMeta = archive.ReadInt32();
+                var arrayType = archive.ReadString();
+
+                switch (arrayType)
+                {
+                    case "StructProperty":
+                        FPropertyTypeName arrayTypeStruct = FPropertyTypeName.Create(new FName(0, 0, type), new FName(0, 0, arrayType));
+                        return new PropertyTag
+                        {
+                            Name = new FName(0, 0, name),
+                            Type = arrayTypeStruct,
+                            ArrayIndex = index,
+                            Size = 1
+                        };
+
+
+                    default:
+                        _ = archive.ReadBytes(4); //padding
+                        var dataSize = archive.ReadInt32();
+                        var flagsGeneric = archive.ReadByte();
+
+                        FPropertyTypeName arrayTypeName = FPropertyTypeName.Create(new FName(0, 0, type), new FName(0, 0, arrayType));
+                        return new PropertyTag
+                        {
+                            Name = new FName(0, 0, name),
+                            Type = arrayTypeName,
+                            ArrayIndex = index,
+                            Size = dataSize,
+                            Flags = flagsGeneric
+                        };
+                }
+;
+
+            case "BoolProperty":
+                index = archive.ReadInt32();
+                checkByte = archive.ReadByte();
+
+                if(archive.ReadInt32() != 0)
+                    checkByte = 0x10;
+
+                break;
+
+            default:
+                index = archive.ReadInt32();
+                size = archive.ReadInt32();
+                checkByte = archive.ReadByte();
+                break;
+        }
+
+        if (checkByte == 1)
+            index = archive.ReadInt32();
+
+        return new PropertyTag
+        {
+            Name = new FName(0,0,name),
+            Type = FPropertyTypeName.Create(new FName(0,0,type)) ,
+            Size = size,
+            ArrayIndex = index,
+            Flags = checkByte
+        };
+
+
+
+    }
+
+    private static PropertyTag? ReadArkFilePre7(AsaArchive archive)
+    {
+        //return ReadPre14(archive);
+
+        var propertyName = archive.ReadString();
+        if (propertyName == "None") return null;
+
+        var propertyType = archive.ReadString();
+
+        var dataSize = archive.ReadInt32();
+        var dataIndex = archive.ReadInt32();
+        byte flags = 0;
+
+        switch (propertyType)
+        {
+            case "BoolProperty":
+                if (archive.ReadInt16() != 0)
+                    flags = 0x10;
+
+                break;
+            case "ByteProperty":
+                var enumName = archive.ReadFName();
+                flags = archive.ReadByte();
+
+                FPropertyTypeName type;
+
+                if (enumName == FName.None || string.IsNullOrEmpty(enumName.FullName))
+                {
+                    // Simple byte, no enum
+                    type = FPropertyTypeName.Create(new FName(0,0, propertyType));
+                }
+                else
+                {
+                    // Enum byte: ByteProperty(EnumName)
+                    type = FPropertyTypeName.Create(new FName(0,0,propertyType), enumName);
+                }
+
+                return new PropertyTag
+                {
+                    Name = new FName(0, 0, propertyName),
+                    Type = type,
+                    Size = dataSize,
+                    ArrayIndex = dataIndex,
+                    Flags = flags
+                };
+
+            case "ArrayProperty":
+                var arrayType = archive.ReadFName();
+                flags = archive.ReadByte();
+                var arrayPropertyType = FPropertyTypeName.Create(new FName(0,0,propertyType), arrayType);
+                
+                return new PropertyTag
+                {
+                    Name = new FName(0, 0, propertyName),
+                    Type = arrayPropertyType,
+                    ArrayIndex = dataIndex,
+                    Flags = flags,
+                    Size = dataSize
+                };
+
+            case "MapProperty":
+
+                break;
+            case "StructProperty":
+                var structName = archive.ReadFName();
+                FPropertyTypeName structType = FPropertyTypeName.Create(new FName(0, 0, propertyType), structName);
+
+                _ = archive.ReadBytes(17);
+
+                return new PropertyTag
+                {
+                    Name = new FName(0, 0, propertyName),
+                    Type = structType,
+                    ArrayIndex = dataIndex,
+                    Flags = 0,
+                    Size = dataSize
+                };
+
+            case "FloatProperty":
+            case "IntProperty":
+            case "Int8Property":
+            case "DoubleProperty":
+            case "UInt32Property":
+            case "UInt64Property":
+            case "UInt16Property":
+            case "Int16Property":
+            case "Int64Property":
+            case "StrProperty":
+            case "NameProperty":
+            case "SoftObjectProperty":
+            case "ObjectProperty":
+                flags = archive.ReadByte();
+
+                break;
+            default:
+                break;
+        }
+
+        return new PropertyTag
+        {
+            Name = new FName(0, 0, propertyName),
+            Type = FPropertyTypeName.Create(new FName(0, 0, propertyType)),
+            Size = dataSize,
+            ArrayIndex = dataIndex,
+            Flags = flags
+        };
+    }
+
     /// <summary>
     /// Reads a property tag for save versions 11-13 (legacy format).
     /// Returns null if the property name is "None" (end of property list).

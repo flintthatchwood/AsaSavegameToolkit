@@ -1,4 +1,7 @@
 using AsaSavegameToolkit.Plumbing.Primitives;
+using System;
+using System.Drawing;
+using System.Xml.Linq;
 
 namespace AsaSavegameToolkit.Plumbing.Properties;
 
@@ -10,6 +13,8 @@ public class ByteProperty : Property<byte>
 {
     public static Property Read(Readers.AsaArchive archive, PropertyTag tag)
     {
+       
+
         if (tag.Type.Parameters.Count > 0)
         {
             // Enum: read as FName

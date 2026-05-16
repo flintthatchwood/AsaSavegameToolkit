@@ -16,11 +16,16 @@ public class SoftObjectProperty : Property<string[]>
     /// </summary>
     public static SoftObjectProperty Read(AsaArchive archive, PropertyTag tag)
     {
-        return new SoftObjectProperty
+        var propertyValueStart = archive.Position;
+
+
+        var newProperty = new SoftObjectProperty
         {
             Tag = tag,
             Value = ReadValue(archive)
         };
+
+        return newProperty;
     }
 
     /// <summary>
@@ -30,28 +35,20 @@ public class SoftObjectProperty : Property<string[]>
     /// </summary>
     public static string[] ReadValue(AsaArchive archive)
     {
-        // Even in non-datastore cryopod objects where there's no nametable, we still read a SoftObjectProperty as an
-        // array of FNames
-        if (archive.IsCryopod || archive.NameTable.Count > 0)
+        var names = new List<string>();
+        while (true)
         {
-            var names = new List<string>();
-            while (true)
+            var next = archive.ReadInt32();
+            if (next == 0)
             {
-                var next = archive.ReadInt32();
-                if (next == 0)
-                {
-                    break; // Terminator
-                }
-
-                archive.Position -= 4; // Rewind to read the FName properly
-                var name = archive.ReadFName().ToString();
-                names.Add(name);
+                break; // Terminator
             }
-            return [.. names];
+
+            archive.Position -= 4; // Rewind to read the FName properly
+            var name = archive.ReadFName().ToString();
+            names.Add(name);
         }
-        else
-        {
-            return archive.ReadStringArray();
-        }
+        return [.. names];
+
     }
 }

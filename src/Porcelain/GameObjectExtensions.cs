@@ -43,7 +43,7 @@ public static class GameObjectExtensions
     public static bool IsStructure(this GameObjectRecord gameObject)
     {
         var className = GetClassName(gameObject);
-        return  className != "Structure_LoadoutDummy_Hotbar_C"
+        return className != "Structure_LoadoutDummy_Hotbar_C"
                 //&& !gameObject.IsInCryo
                 && (
                     gameObject.Properties.HasAny("OwnerName")
@@ -51,6 +51,16 @@ public static class GameObjectExtensions
                     || NonCreatureDisambiguatedClasses.Contains(className)
                 )
                 && !className.StartsWith("DeathItemCache_");
+    }
+
+    public static bool IsTribe(this GameObjectRecord gameObject)
+    {
+        return gameObject.ClassName == "/Script/ShooterGame.PrimalTribeData";
+    }
+
+    public static bool IsProfile(this GameObjectRecord gameObject)
+    {
+        return gameObject.Properties.HasAny("MyData");
     }
 
     public static bool IsCreature(this GameObjectRecord gameObject)
@@ -69,14 +79,19 @@ public static class GameObjectExtensions
         return gameObject.Properties.HasAny("OwnerInventory");
     }
 
+    public static bool IsItem(this GameObjectRecord gameObject)
+    {
+        return gameObject.Properties.HasAny("ItemID");
+    }
+
     public static bool IsInventory(this GameObjectRecord gameObject)
     {
         return gameObject.Properties.HasAny("bInitializedMe");
     }
 
-    public static bool IsPlayer(this GameObjectRecord gameObject)
+    public static bool IsPlayerComponent(this GameObjectRecord gameObject)
     {
-        return gameObject.Properties.HasAny("LinkedPlayerDataID");
+        return gameObject.Properties.HasAny("LinkedPlayerDataID") || gameObject.Properties.HasAny("PlayerDataID");
     }
 
     public static bool IsStatusComponent(this GameObjectRecord gameObject)
@@ -176,14 +191,35 @@ public static class GameObjectExtensions
             return 1;
         }
 
+        /*
         if(!statusComponent.Properties.TryGet<int>("BaseCharacterLevel", out var baseLevel))
         {
-            baseLevel = 1;
+            baseLevel = 0;
         }
+        */
 
-        int extraLevel = statusComponent.Properties.Get<short>("ExtraCharacterLevel");
+        int wildLevels = GetStatValues<byte>(statusComponent, "NumberOfLevelUpPointsApplied", 12).Sum(x=>x.GetValueOrDefault(0));
+        int tamedLevels = GetStatValues<byte>(statusComponent, "NumberOfLevelUpPointsAppliedTamed", 12).Sum(x=>x.GetValueOrDefault(0));
+        int tamedMutations = GetStatValues<byte>(statusComponent, "NumberOfMutationsAppliedTamed", 12).Sum(x => x.GetValueOrDefault(0));
+        
+        var totalLevel = wildLevels + tamedLevels + tamedMutations + 1;
 
-        return baseLevel + extraLevel;
+        return totalLevel; 
+
+
+    }
+
+    public static T?[] GetStatValues<T>(this GameObjectRecord statusComponent, string propertyName, int count) where T : struct
+    {
+        var levels = new T?[count];
+        for (var i = 0; i < count; i++)
+        {
+            if (statusComponent.Properties.TryGet<T>(propertyName, i, out var level))
+            {
+                levels[i] = level;
+            }
+        }
+        return levels;
     }
 
     public static string? GetNameForCreature(this GameObjectRecord gameObject, ArkDataProvider arkData, string valueIfNotFound = "")
@@ -208,6 +244,8 @@ public static class GameObjectExtensions
 
     public static long CreateDinoId(int id1, int id2)
     {
-        return ((long)id1 << 32) | (id2 & 0xFFFFFFFFL);
+        return long.Parse($"{id1}{id2}");
+
+        //return ((long)id1 << 32) | (id2 & 0xFFFFFFFFL);
     }   
 }

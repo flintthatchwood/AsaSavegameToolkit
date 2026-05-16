@@ -1,6 +1,10 @@
-using System.Collections;
-
 using AsaSavegameToolkit.Plumbing.Primitives;
+using AsaSavegameToolkit.Plumbing.Readers;
+using System;
+using System.Collections;
+using System.Diagnostics.CodeAnalysis;
+using System.Reflection;
+using System.Xml.Linq;
 
 namespace AsaSavegameToolkit.Plumbing.Properties;
 
@@ -28,7 +32,7 @@ public class ArrayProperty : Property<IList>
     /// </summary>
     public static IList ReadValue(Readers.AsaArchive archive, PropertyTag tag)
     {
-        if(archive.SaveVersion < 14)
+        if(archive.SaveVersion < 14 || archive.IsArkFile)
         {
             return ReadValuePre14(archive, tag);
         }
@@ -48,10 +52,22 @@ public class ArrayProperty : Property<IList>
         }
 
         // Avoid boxing byte arrays - if element type is byte, read as byte array directly
-        if (elementType.TypeName.FullName == "ByteProperty")
+        if (elementType.TypeName.FullName == "ByteProperty" )
         {
-            var byteArray = archive.ReadBytes(count);
-            return byteArray;
+            if (elementType.ParameterCount == 0)
+            {
+                var byteArray = archive.ReadBytes(count);
+                return byteArray;
+            }
+
+            //enum array
+            var enumElements = new object[count];
+            for (int i = 0; i < count; i++)
+            {
+                enumElements[i] = archive.ReadFName();
+            }
+
+            return enumElements;
         }
 
         var elements = new object[count];
@@ -77,9 +93,13 @@ public class ArrayProperty : Property<IList>
         if (elementType == null)
             throw new InvalidOperationException($"ArrayProperty must have an ElementType parameter");
         
+
         // StructProperty arrays have special format in v13
         if (elementType.TypeName.FullName == "StructProperty")
         {
+            if (archive.IsArkFile)
+                return ReadStructArrayFile(archive, tag);
+
             var structArray = ReadStructArrayPre14(archive, out var structType);
             // Fix up the tag to record the resolved struct type.
             // We must NOT mutate the interned elementType instance — create new interned
@@ -106,11 +126,40 @@ public class ArrayProperty : Property<IList>
         }
 
         var elements = new object[count];
-        
+
         // Read each element based on element type
+
         for (int i = 0; i < count; i++)
         {
-            elements[i] = ReadValue(archive, elementType);
+            if (archive.IsArkFile || archive.IsCryopod)
+            {
+                switch (elementType.TypeName.Name)
+                {
+                    case "ObjectProperty":
+                        var dataTypeSize = (tag.Size - 4) / count; // rough size of each element based on total size in tag (minus 4 bytes for count)
+
+                        if (dataTypeSize > 8)
+                        {
+                            elements[i] = ReadValue(archive, elementType);
+                        }
+                        else
+                        {
+                            elements[i] = archive.ReadInt64();
+                        }
+
+                        break;
+                    default:
+                        elements[i] = ReadValue(archive, elementType);
+                        break;
+                }
+            }
+            else
+            {
+                elements[i] = ReadValue(archive, elementType);
+            }
+
+
+
         }
         
         return elements;
@@ -123,6 +172,9 @@ public class ArrayProperty : Property<IList>
     /// </summary>
     private static IList ReadStructArrayPre14(Readers.AsaArchive archive, out FPropertyTypeName structType)
     {
+
+
+
         // Read element count first
         var count = archive.ReadInt32();
 
@@ -152,5 +204,77 @@ public class ArrayProperty : Property<IList>
         structType = structTag.Type.GetParameter(0) ?? throw new InvalidOperationException("StructProperty tag must have ElementType parameter");
 
         return elements;
-    }  
+    }
+
+    private static IList ReadStructArrayFile(AsaArchive archive, PropertyTag tag)
+    {
+
+        if(archive.SaveVersion < 7)
+        {
+            return ReadStructArrayFilePre7(archive, tag);
+        }
+
+
+        var checkInt1 = archive.ReadInt32(); // unknown
+        var structKey = archive.ReadString();
+        var checkInt2 = archive.ReadInt32(); // unknown
+        
+        var structClassPath = archive.ReadString(); // structType / path
+        _ = archive.ReadBytes(8); // struct id / padding
+        _ = archive.ReadByte(); // separator
+
+        FPropertyTypeName arrayTypeStruct = FPropertyTypeName.Create(tag.Type.Parameters[0].TypeName, new FName(0, 0, structKey));
+
+
+        var count = archive.ReadInt32();
+
+        var elements = new object[count];
+        for(int i = 0; i < count; i++)
+        {
+            var structTag = new PropertyTag
+            {
+                Name = new FName(0,0, structKey),
+                Type = arrayTypeStruct,
+                ArrayIndex = i,
+                Size = 1
+            };
+            var propValue = StructProperty.ReadValue(archive, structTag);
+            elements[i] = propValue;
+
+        }
+
+        return elements;
+
+    }
+
+    private static IList ReadStructArrayFilePre7(AsaArchive archive, PropertyTag tag)
+    {
+        var count = archive.ReadInt32();
+        var name = archive.ReadFName();
+        var type = archive.ReadFName();
+
+        _ = archive.ReadBytes(8);
+
+        var innerKey = archive.ReadFName();
+
+        _ = archive.ReadBytes(17);
+
+        FPropertyTypeName arrayTypeStruct = FPropertyTypeName.Create(tag.Type.Parameters[0].TypeName, innerKey);
+
+        var structTag = new PropertyTag
+        {
+            Name = name,
+            Type = arrayTypeStruct,
+            ArrayIndex = 0,
+            Size = 1
+        };
+
+        var elements = new object[count];
+        for (int i = 0; i < count; i++)
+        {
+            elements[i] = StructProperty.ReadValue(archive, structTag);
+        }
+
+        return elements;
+    }
 }

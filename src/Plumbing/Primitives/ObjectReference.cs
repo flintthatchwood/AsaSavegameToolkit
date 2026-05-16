@@ -37,24 +37,71 @@ public class ObjectReference
     /// </summary>
     public static ObjectReference Read(Readers.AsaArchive archive)
     {
+        if (archive.IsArkFile)
+        {
+            return ReadFile(archive);
+        }
+        
         if(archive.IsCryopod)
         {
             return ReadCryopod(archive);
         }
 
         var referenceType = archive.ReadInt16();
-        
+
+        if (referenceType == 0)
+        {
+            // GUID reference (most common)
+            return new ObjectReference
+            {
+                IsPath = false,
+                ObjectId = archive.ReadGuid()
+            };
+        }
+
+
+        var pos = archive.Position;
+        try
+        {
+            // Path reference (FName)
+
+            var pathName = archive.ReadFName();
+            return new ObjectReference
+            {
+                IsPath = true,
+                Path = pathName
+            };
+        }
+        catch
+        {
+            archive.Position = pos;
+            var p1 = archive.ReadInt64();
+                
+            return new ObjectReference()
+            {
+                IsPath = false,
+                ObjectId = Guid.Empty
+            };
+        }
+
+    }
+
+    private static ObjectReference ReadFile(AsaArchive archive)
+    {
+        var referenceType = archive.ReadInt32();
+
         if (referenceType == 1)
         {
             // Path reference (FName)
             return new ObjectReference
             {
                 IsPath = true,
-                Path = archive.ReadFName()
+                Path = new FName(0,0, archive.ReadString())
             };
         }
         else
         {
+            archive.Position -= 4; // Rewind the int32 we just read, as the GUID is stored in the same 4 bytes + 12 more bytes
             // GUID reference (most common)
             return new ObjectReference
             {
@@ -70,21 +117,47 @@ public class ObjectReference
 
         if (referenceType == 1)
         {
-            // Path reference (FName)
-            return new ObjectReference
+            var valStart = archive.Position;
+            var allow = archive.AllowDynamicNameTable;
+            archive.AllowDynamicNameTable = false;
+            try
             {
-                IsPath = true,
-                Path = archive.ReadFName()
-            };
+
+                var pathValue = archive.ReadFName();
+
+                // Path reference (FName)
+                return new ObjectReference
+                {
+                    IsPath = true,
+                    Path = pathValue
+                };
+            }
+            catch
+            {
+                archive.Position = valStart;
+                archive.AllowDynamicNameTable = allow;                
+                var pathValue = archive.ReadString();
+
+                // Path reference (FName)
+                return new ObjectReference
+                {
+                    IsPath = true,
+                    Path = new FName(0,0,pathValue)
+                };
+
+            }
+            archive.AllowDynamicNameTable = allow;
         }
         else
         {
-            // GUID reference (most common)
+            var endOfData = archive.ReadInt32();
+
             return new ObjectReference
             {
                 IsPath = false,
-                ObjectId = archive.ReadGuid()
+                ObjectId = Guid.Empty
             };
+
         }
     }
 
