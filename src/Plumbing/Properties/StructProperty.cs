@@ -200,6 +200,7 @@ public class StructProperty : Property<object>
 
             // Custom ark structs with their own readers - read using custom logic
             "CustomItemData" => CustomItemDataRecord.Read(archive),
+            "DinoAncestorsEntry" => DinoAncestorsEntryRecord.Read(archive),
 
             // Unknown struct types - read as generic property bags
             _ => ReadGenericStruct(archive) // Fallback to generic
