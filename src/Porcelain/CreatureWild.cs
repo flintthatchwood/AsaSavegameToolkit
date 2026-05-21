@@ -15,7 +15,7 @@ namespace AsaSavegameToolkit.Porcelain
             int targetingTeam = properties.Get<int>("TargetingTeam");
             var dinoId1 = properties.Get<uint>("DinoID1");
             var dinoId2 = properties.Get<uint>("DinoID2");
-            var dinoId = long.Parse($"{dinoId1}{dinoId2}");
+            var dinoId = (dinoId1 << 32) | dinoId2;
 
             bool isInCryo = properties.Get<bool>("IsStored");
             var colorRegions = new byte[6];

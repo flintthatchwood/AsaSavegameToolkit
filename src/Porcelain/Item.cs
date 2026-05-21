@@ -114,7 +114,7 @@ public class Item
             itemId1 = itemIdProperties.Get<uint>("ItemID1");
             itemId2 = itemIdProperties.Get<uint>("ItemID2");
         }
-        var itemId = long.Parse($"{itemId1}{itemId2}");
+        var itemId = (itemId1 << 32) | itemId2;
 
 
         itemQuantity = properties.Get<int>("ItemQuantity");

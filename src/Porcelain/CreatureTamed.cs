@@ -84,7 +84,15 @@ namespace AsaSavegameToolkit.Porcelain
             int targetingTeam = properties.Get<int>("TargetingTeam");
             var dinoId1 = properties.Get<uint>("DinoID1");
             var dinoId2 = properties.Get<uint>("DinoID2");
-            var dinoId = long.Parse($"{dinoId1}{dinoId2}");
+
+            //combined as string to be used by in-game commands
+            var dinoId = (dinoId1 << 32) | dinoId2;
+
+            /*             
+            combined_id = ((dinoId1 << 32) | dinoId2)
+            dino_id_1 = combined_id >> 32
+            dino_id_2 = combined_id & 0xFFFFFFFF
+            */
 
             bool isInCryo = properties.Get<bool>("IsStored");
             var colorRegions = new byte[6];
@@ -139,13 +147,13 @@ namespace AsaSavegameToolkit.Porcelain
                     var maleName = propertyList.Get<string>("MaleName") ?? "";
                     var maleId1 = propertyList.Get<uint>("MaleDinoID1");
                     var maleId2 = propertyList.Get<uint>("MaleDinoID2");
-                    long maleId = maleId1 + maleId2; //TODO:// verify if its just concatenation of strings same as the normal creature data or if it needs bit masking
+                    long maleId = long.Parse($"{maleId1}{maleId2}"); 
 
 
                     var femaleName = propertyList.Get<string>("FemaleName") ?? "";
                     var femaleId1 = propertyList.Get<uint>("FemaleDinoID1");
                     var femaleId2 = propertyList.Get<uint>("FemaleDinoID2");
-                    long femaleId = femaleId1 + maleId2;//TODO:// verify if its just concatenation of strings same as the normal creature data or if it needs bit masking
+                    long femaleId = long.Parse($"{femaleId1}{femaleId2}");
 
                     femaleAncestry.Add(new Ancestry(i, maleId, maleName, femaleId, femaleName));
 
@@ -163,12 +171,12 @@ namespace AsaSavegameToolkit.Porcelain
                     var maleName = propertyList.Get<string>("MaleName") ?? "";
                     var maleId1 = propertyList.Get<uint>("MaleDinoID1");
                     var maleId2 = propertyList.Get<uint>("MaleDinoID2");
-                    long maleId = 0;
+                    long maleId = long.Parse($"{maleId1}{maleId2}");
 
                     var femaleName = propertyList.Get<string>("FemaleName") ?? "";
                     var femaleId1 = propertyList.Get<uint>("FemaleDinoID1");
                     var femaleId2 = propertyList.Get<uint>("FemaleDinoID2");
-                    long femaleId = 0;
+                    long femaleId = long.Parse($"{femaleId1}{femaleId2}");
 
                     maleAncestry.Add(new Ancestry(i, maleId, maleName, femaleId, femaleName));
                 }

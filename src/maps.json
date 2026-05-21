@@ -1,6 +1,15 @@
 {
   "maps": [
     {
+      "DisplayName": "Lost Colony",
+      "MapName": "lostcolony_wp",
+      "ImageFile": "map_lostcolony_wp.jpg",
+      "OffsetY": 50.0,
+      "ScaleY": 8158.0,
+      "OffsetX": 50.0,
+      "ScaleX": 8164.0
+    },
+    {
       "DisplayName": "The Island",
       "MapName": "theisland_wp",
       "ImageFile": "map_theisland_wp.jpg",

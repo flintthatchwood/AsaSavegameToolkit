@@ -405,8 +405,8 @@ public class AsaSaveGame
             });
 
         var tamedCreatures = creatures.Values.OfType<CreatureTamed>().ToDictionary(x => x.Id);
-        var wildCreatures = creatures.Values.OfType<CreatureWild>().ToDictionary(x => x.Id);
 
+        var wildCreatures = creatures.Values.OfType<CreatureWild>().ToDictionary(x => x.Id);
 
         return new AsaSaveGame
         {
