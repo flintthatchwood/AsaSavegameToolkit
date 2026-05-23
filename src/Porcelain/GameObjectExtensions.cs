@@ -203,10 +203,10 @@ public static class GameObjectExtensions
 
     public static long GetDinoId(this GameObjectRecord gameObject)
     {
-        return CreateDinoId(gameObject.Properties.Get<int>("DinoID1", 0), gameObject.Properties.Get<int>("DinoID2", 0));
+        return CreateDinoId(gameObject.Properties.Get<uint>("DinoID1", 0), gameObject.Properties.Get<uint>("DinoID2", 0));
     }
 
-    public static long CreateDinoId(int id1, int id2)
+    public static long CreateDinoId(uint id1, uint id2)
     {
         return ((long)id1 << 32) | (id2 & 0xFFFFFFFFL);
     }   
