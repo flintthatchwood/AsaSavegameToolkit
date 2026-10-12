@@ -80,6 +80,17 @@ public class AsaSaveGameTests : SaveTests
         Assert.AreEqual(0, ladderA.Components.Count + ladderB.Components.Count, "the parent of a shared name is ambiguous");
     }
 
+    [TestMethod]
+    public void ReadFrom_RaftIsAStructureNotACreature()
+    {
+        var saveFile = Path.Combine(TestSettings.AssetsDirectory, "version_14/TheIsland_WP.ark");
+        var saveGame = AsaSaveGame.ReadFrom(saveFile, TestContext.GetLogger(), cancellationToken: TestContext.CancellationToken);
+
+        Assert.IsFalse(saveGame.TamedCreatures.Values.Any(c => c.ClassName.EndsWith(".Raft_BP_C")));
+        var raft = saveGame.Structures.Values.Single(s => s.ClassName.EndsWith(".Raft_BP_C"));
+        Assert.IsTrue(raft.IsPlayerBuilt);
+    }
+
     private static GameObjectRecord Record(params string[] names) =>
         new(Guid.NewGuid(), new FName(-1, 0, "/Game/Test/Test.Test_C"), names, [], 0, ObjectTypeFlags.None, extraGuids: []);
 }

@@ -6,6 +6,7 @@ using AsaSavegameToolkit.Plumbing.Utilities;
 using AsaSavegameToolkit.Porcelain;
 using AsaSavegameToolkit.Tests.Helpers;
 
+using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Logging.Abstractions;
 
 namespace AsaSavegameToolkit.Tests.Porcelain;
@@ -34,6 +35,66 @@ public class CreatureTests : SaveTests
         var record = reader.ReadGameRecord(Guid.Parse(YutyrannusId), TestContext.CancellationToken);
 
         Assert.IsTrue(record.IsCreature());
+    }
+
+    [TestMethod]
+    [DataRow("/Game/PrimalEarth/Items/Raft/Raft_BP.Raft_BP_C")]
+    [DataRow("/Game/Genesis/Dinos/TEKHoverSkiff/TekHoverSkiff_Character_BP.TekHoverSkiff_Character_BP_C")]
+    [DataRow("/Game/Water/Vessels/Galleon/GalleonShipBP.GalleonShipBP_C")]
+    [DataRow("/Game/Packs/Wasteland/Vehicles/Car/Car_Vehicle_BP.Car_Vehicle_BP_C")]
+    public void IsCreature_IsFalseForVehicles(string className)
+    {
+        var vehicle = Vehicle(className, "Vehicle_1");
+
+        Assert.IsFalse(vehicle.IsCreature());
+        Assert.IsTrue(vehicle.IsStructure());
+    }
+
+    [TestMethod]
+    public void CreaturesFromCryopod_SkipsAPickedUpCar()
+    {
+        // the car and its status component, then its parts
+        var car = Vehicle("/Game/Packs/Wasteland/Vehicles/Car/Car_Vehicle_BP.Car_Vehicle_BP_C", "Car_Vehicle_BP_C_1");
+        var carStatus = Record(["DinoCharacterStatusComponent_BP_Car_C1", "Car_Vehicle_BP_C_1", "PersistentLevel"]);
+        var part = Record(["Unknown_2"]);
+        var logger = new WarningCounter();
+
+        var creatures = AsaSaveGame.CreaturesFromCryopod(Pod(), [[car, carStatus], [part], [part]], logger);
+
+        Assert.IsEmpty(creatures);
+        Assert.AreEqual(0, logger.Warnings);
+    }
+
+    [TestMethod]
+    public void CreaturesFromCryopod_KeepsACreatureNextToAVehicle()
+    {
+        var raft = Vehicle("/Game/PrimalEarth/Items/Raft/Raft_BP.Raft_BP_C", "Raft_BP_C_1");
+        var rex = Record(["Rex_Character_BP_C_2", "PersistentLevel"], BoolProp("bServerInitializedDino", true));
+
+        var creatures = AsaSaveGame.CreaturesFromCryopod(Pod(), [[raft, rex]], NullLogger.Instance);
+
+        Assert.HasCount(1, creatures);
+    }
+
+    // vehicles have bServerInitializedDino like creatures do
+    private static GameObjectRecord Vehicle(string className, string name) =>
+        new(Guid.NewGuid(), new FName(-1, 0, className), [name], [BoolProp("bServerInitializedDino", true)], 0, ObjectTypeFlags.None, extraGuids: []);
+
+    private sealed class WarningCounter : ILogger
+    {
+        public int Warnings { get; private set; }
+
+        public IDisposable? BeginScope<TState>(TState state) where TState : notnull => null;
+
+        public bool IsEnabled(LogLevel logLevel) => true;
+
+        public void Log<TState>(LogLevel logLevel, EventId eventId, TState state, Exception? exception, Func<TState, Exception?, string> formatter)
+        {
+            if (logLevel >= LogLevel.Warning)
+            {
+                Warnings++;
+            }
+        }
     }
 
     [TestMethod]

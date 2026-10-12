@@ -12,11 +12,20 @@ namespace AsaSavegameToolkit.Porcelain;
 public static class GameObjectExtensions
 {
     /// <summary>
-    /// Gets the short class name (e.g., "Yutyrannus_Character_BP_C").
+    /// Gets the class name (e.g., "/Game/PrimalEarth/Dinos/Yutyrannus/Yutyrannus_Character_BP.Yutyrannus_Character_BP_C").
     /// </summary>
     public static string GetClassName(this GameObjectRecord record)
     {
         return record.ClassName.FullName;
+    }
+
+    /// <summary>
+    /// Gets the class name without its path (e.g., "Yutyrannus_Character_BP_C").
+    /// </summary>
+    public static string GetShortClassName(this GameObjectRecord record)
+    {
+        var className = record.ClassName.FullName;
+        return className[(className.LastIndexOf('.') + 1)..];
     }
 
     /// <summary>
@@ -37,18 +46,24 @@ public static class GameObjectExtensions
         "DingyRaft_BP_C",
         "LongshipRaft_BP_C",
         "SRaft_BP_C",
-        "CherufeNest_C"
+        "CherufeNest_C",
+        "SloopShipBP_C",
+        "BrigShipBP_C",
+        "GalleonShipBP_C",
+        "TriremeShipBP_C",
+        "Car_Vehicle_BP_C"
     ];
 
     public static bool IsStructure(this GameObjectRecord gameObject)
     {
         var className = GetClassName(gameObject);
-        return  className != "Structure_LoadoutDummy_Hotbar_C"
+        var shortClassName = gameObject.GetShortClassName();
+        return  shortClassName != "Structure_LoadoutDummy_Hotbar_C"
                 //&& !gameObject.IsInCryo
                 && (
                     gameObject.Properties.HasAny("OwnerName")
                     || gameObject.Properties.HasAny("bHasResetDecayTime")
-                    || NonCreatureDisambiguatedClasses.Contains(className)
+                    || NonCreatureDisambiguatedClasses.Contains(shortClassName)
                 )
                 && !className.StartsWith("DeathItemCache_");
     }
@@ -56,7 +71,7 @@ public static class GameObjectExtensions
     public static bool IsCreature(this GameObjectRecord gameObject)
     {
         return gameObject.Properties.HasAny("bServerInitializedDino")
-            && !NonCreatureDisambiguatedClasses.Contains(gameObject.ClassName.FullName);
+            && !NonCreatureDisambiguatedClasses.Contains(gameObject.GetShortClassName());
     }
 
     public static bool IsDroppedItem(this GameObjectRecord gameObject)

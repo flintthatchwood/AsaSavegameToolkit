@@ -150,6 +150,14 @@ public class AsaSaveGame
         var creatures = new List<Creature>();
         Creature? creature = null;
 
+        // A picked-up car is stored the same way, with the car where the creature would be. It isn't a creature.
+        if (cryoRecordSets.Count > 0
+            && !cryoRecordSets[0].Any(r => r.IsCreature())
+            && cryoRecordSets[0].Any(r => GameObjectExtensions.NonCreatureDisambiguatedClasses.Contains(r.GetShortClassName())))
+        {
+            return creatures;
+        }
+
         foreach (var cryoRecords in cryoRecordSets)
         {
             var dinoRecord = cryoRecords.FirstOrDefault(r => r.IsCreature());
