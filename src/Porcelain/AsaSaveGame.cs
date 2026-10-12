@@ -153,7 +153,7 @@ public class AsaSaveGame
 
             if (cryoRecordSets.Count > 1)
             {
-                logger.LogWarning("Cryopod with name {CryopodName} and UUID {CryopodUuid} contains more than on set of creature data", cryopod.Names[0], cryopod.Uuid);
+                logger.LogWarning("Cryopod with name {CryopodName} and UUID {CryopodUuid} contains more than one set of creature data", cryopod.Names[0], cryopod.Uuid);
             }
 
             // Nest status components under their parent dino so Creature.Create() can read stat levels.
