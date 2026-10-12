@@ -43,44 +43,10 @@ public class AsaSaveGame
         var ignoredRecords = new Dictionary<Guid, GameObjectRecord>();
         var unknownRecords = new Dictionary<Guid, GameObjectRecord>();
 
-        // First pass: place all top-level objects (those with only 1 name) into the recordsByName dictionary so they
-        // can be referenced as parents by their components in the second pass.
-        Dictionary<string, GameObjectRecord> recordsByName = gameObjects.Values
-            .Where(x => x.Names.Count == 1)
-            .ToDictionary(x => x.Names[0]);
-
-        // Second pass: for each game object with multiple names, find its parent object in recordsByName using the
-        // last name in the Names list, then crawl down the component stack using the preceding names until we find the
-        // correct parent to attach this component to.
-        foreach (var gameObject in gameObjects.Values.Where(x => x.Names.Count > 1))
-        {
-            var parentName = gameObject.Names[^1];
-            if (!recordsByName.TryGetValue(parentName, out var parent))
-            {
-                // only warn about missing parents if the parent name isn't rooted.
-                // We don't expect to find `/Game/PrimalEarth/Sound/PlayerVoice/Female_Legacy/DA_Female_Legacy` in the records.
-                if (!parentName.StartsWith('/'))
-                {
-                    logger.LogWarning(
-                        "Could not find parent game object with name {ParentName} for game object with name {ChildName}",
-                        gameObject.Names[1],
-                        gameObject.Names[0]);
-                }
-                continue;
-            }
-
-            // The component names are in deepest-first order, so crawl from the back of the list forward down the component stack
-            // This will probably never be be invoked as there are no known objects with more than 2 names
-            for (var i = gameObject.Names.Count - 2; i > 0; i--)
-            {
-                parent = parent.Components[gameObject.Names[i]];
-            }
-
-            parent.Components[gameObject.Names[0]] = gameObject;
-        }
+        var topLevelRecords = NestComponents(gameObjects.Values, logger);
 
         // Third Pass: now that we've nested all the components, we can categorize the top level game objects by type
-        foreach (var gameObject in recordsByName.Values)
+        foreach (var gameObject in topLevelRecords)
         {
             if (gameObject.IsCreature())
                 creatureRecords[gameObject.Uuid] = gameObject;
@@ -104,7 +70,7 @@ public class AsaSaveGame
         // placed into a typed bucket. Release them so the GC can collect the raw
         // GameObjectRecord graph before we begin allocating the Porcelain objects.
         gameObjects = null!;
-        recordsByName = null!;
+        topLevelRecords = null!;
 
         var tribes = new Dictionary<Guid, Tribe>();
 
@@ -222,5 +188,77 @@ public class AsaSaveGame
             Structures = structures,
             DroppedItems = droppedItems,
         };
+    }
+
+    /// <summary>
+    /// Attaches each component (an object with more than one name) to its parent and returns the top-level objects.
+    /// Top-level names aren't always unique (e.g. two LadderBP structures or InstancedFoliageActors can share one),
+    /// so every top-level object is kept and a component whose parent name is shared is left unattached.
+    /// </summary>
+    internal static List<GameObjectRecord> NestComponents(IEnumerable<GameObjectRecord> gameObjects, ILogger logger)
+    {
+        var topLevel = new List<GameObjectRecord>();
+        var components = new List<GameObjectRecord>();
+        var recordsByName = new Dictionary<string, GameObjectRecord>();
+        var sharedNames = new HashSet<string>();
+
+        // First pass: place all top-level objects (those with only 1 name) into recordsByName so they can be
+        // referenced as parents by their components in the second pass.
+        foreach (var gameObject in gameObjects)
+        {
+            if (gameObject.Names.Count > 1)
+            {
+                components.Add(gameObject);
+            }
+            else if (gameObject.Names.Count == 1)
+            {
+                topLevel.Add(gameObject);
+                if (!recordsByName.TryAdd(gameObject.Names[0], gameObject))
+                {
+                    sharedNames.Add(gameObject.Names[0]);
+                }
+            }
+        }
+
+        // Second pass: for each game object with multiple names, find its parent object in recordsByName using the
+        // last name in the Names list, then crawl down the component stack using the preceding names until we find the
+        // correct parent to attach this component to.
+        foreach (var gameObject in components)
+        {
+            var parentName = gameObject.Names[^1];
+            if (sharedNames.Contains(parentName))
+            {
+                logger.LogWarning(
+                    "More than one game object is named {ParentName}, so game object {ChildName} can't be attached to its parent",
+                    parentName,
+                    gameObject.Names[0]);
+                continue;
+            }
+
+            if (!recordsByName.TryGetValue(parentName, out var parent))
+            {
+                // only warn about missing parents if the parent name isn't rooted.
+                // We don't expect to find `/Game/PrimalEarth/Sound/PlayerVoice/Female_Legacy/DA_Female_Legacy` in the records.
+                if (!parentName.StartsWith('/'))
+                {
+                    logger.LogWarning(
+                        "Could not find parent game object with name {ParentName} for game object with name {ChildName}",
+                        gameObject.Names[1],
+                        gameObject.Names[0]);
+                }
+                continue;
+            }
+
+            // The component names are in deepest-first order, so crawl from the back of the list forward down the component stack
+            // This will probably never be be invoked as there are no known objects with more than 2 names
+            for (var i = gameObject.Names.Count - 2; i > 0; i--)
+            {
+                parent = parent.Components[gameObject.Names[i]];
+            }
+
+            parent.Components[gameObject.Names[0]] = gameObject;
+        }
+
+        return topLevel;
     }
 }
