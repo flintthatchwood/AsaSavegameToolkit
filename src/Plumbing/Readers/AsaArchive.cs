@@ -229,7 +229,9 @@ public class AsaArchive : IDisposable
     /// Format: Int32 (name index) + Int32 (instance number)
     /// Immediately resolves the string value from the name table.
     /// </summary>
-    public FName ReadFName()
+    public FName ReadFName() => ReadFName(allowUnresolved: false);
+
+    private FName ReadFName(bool allowUnresolved)
     {
         if ((IsCryopod || IsArkFile) && NameTable.Count == 0)
         {
@@ -250,6 +252,10 @@ public class AsaArchive : IDisposable
                 nameString = $"Name_{nameIndex:X8}";
                 NameTable[nameIndex] = nameString;
             }
+            else if (allowUnresolved)
+            {
+                return new FName(nameIndex, 0, string.Empty);
+            }
             else
             {
                 throw new KeyNotFoundException($"Name index {nameIndex} not found in name table at position {Position - 8} of {FileName}");
@@ -258,6 +264,13 @@ public class AsaArchive : IDisposable
 
         return new FName(nameIndex, instanceNumber, nameString);
     }
+
+    /// <summary>
+    /// Reads an FName whose index may be missing from the name table, as some game objects' class names are (seen on
+    /// The Island's server saves since Lost Colony: controller objects whose class index the table doesn't hold). A
+    /// missing one comes back with an empty Name and its index kept, instead of throwing.
+    /// </summary>
+    public FName ReadFNameOrUnresolved() => ReadFName(allowUnresolved: true);
 
     /// <summary>
     /// Reads an FPropertyTypeName (Unreal Engine 5.5+ type system).

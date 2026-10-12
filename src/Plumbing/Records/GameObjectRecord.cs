@@ -48,6 +48,12 @@ public class GameObjectRecord
     public FName ClassName { get; }
 
     /// <summary>
+    /// False when the class name's index isn't in the save's name table (ClassName.Name is empty then; Names still
+    /// holds the object's names).
+    /// </summary>
+    public bool ClassNameResolved => !string.IsNullOrEmpty(ClassName.Name);
+
+    /// <summary>
     /// Instance name chain for this object.
     /// <list type="bullet">
     /// <item><term>Count == 1 (root object)</term>
@@ -123,8 +129,8 @@ public class GameObjectRecord
             return ReadPre14(archive, uuid);
         }
         
-        // Read class name
-        var className = archive.ReadFName();
+        // Read class name (its index can be missing from the name table: ClassNameResolved)
+        var className = archive.ReadFNameOrUnresolved();
         
         // Unknown Int32 (always 0)
         archive.ReadInt32();
@@ -162,8 +168,8 @@ public class GameObjectRecord
     /// </summary>
     private static GameObjectRecord ReadPre14(Readers.AsaArchive archive, Guid uuid)
     {
-        // Read class name
-        var className = archive.ReadFName();
+        // Read class name (its index can be missing from the name table: ClassNameResolved)
+        var className = archive.ReadFNameOrUnresolved();
         
         // Unknown Int32 (always 0)
         archive.ReadInt32();
