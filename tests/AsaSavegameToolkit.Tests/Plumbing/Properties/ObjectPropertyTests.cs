@@ -81,4 +81,53 @@ public class ObjectPropertyTests : SaveTests
         Assert.AreEqual(path, reference.Value);
         Assert.AreEqual(stream.Length - 4, archive.Position, "should stop right after the path");
     }
+
+    [TestMethod]
+    [DataRow((short)13, new[] { 0, -1 }, -1, DisplayName = "v13: 0 then -1 (PlacedIceBridges element)")]
+    [DataRow((short)13, new[] { 0, 1 }, 1, DisplayName = "v13: 0 then an index")]
+    [DataRow((short)13, new[] { -1 }, -1, DisplayName = "v13: lone -1")]
+    [DataRow((short)14, new[] { 0, -1 }, -1, DisplayName = "v14: 0 then -1 (PlacedIceBridges element)")]
+    [DataRow((short)14, new[] { 0, 1 }, 1, DisplayName = "v14: 0 then an index")]
+    [DataRow((short)14, new[] { -1 }, -1, DisplayName = "v14: lone -1")]
+    public void Cryopod_ObjectReference_IsAnIndexNotAGuid(short saveVersion, int[] ints, int expectedIndex)
+    {
+        using var archive = CryoArchive(saveVersion, [.. ints, 0x12345678]); // then the next value
+
+        var reference = ObjectReference.Read(archive);
+
+        Assert.IsFalse(reference.IsPath);
+        Assert.AreEqual(expectedIndex, reference.ObjectIndex);
+        Assert.AreEqual(ints.Length * 4, archive.Position, "should stop right after the reference");
+    }
+
+    [TestMethod]
+    [DataRow((short)13)]
+    [DataRow((short)14)]
+    public void Cryopod_ObjectArray_ReadsIndexes(short saveVersion)
+    {
+        // like PlacedIceBridges: count, then one reference per element
+        using var archive = CryoArchive(saveVersion, [3, 0, -1, 0, 2, -1, 0x12345678]);
+        var objectArray = FPropertyTypeName.Create(new FName(-1, 0, "ArrayProperty"), new FName(-1, 0, "ObjectProperty"));
+        var tag = new PropertyTag { Name = new FName(-1, 0, "PlacedIceBridges"), Type = objectArray };
+
+        var elements = ArrayProperty.ReadValue(archive, tag);
+
+        CollectionAssert.AreEqual(new[] { -1, 2, -1 }, elements.Cast<ObjectReference>().Select(r => r.ObjectIndex).ToArray());
+        Assert.AreEqual(0x12345678, archive.ReadInt32(), "should stop right after the last element");
+    }
+
+    private static AsaArchive CryoArchive(short saveVersion, int[] ints)
+    {
+        var stream = new MemoryStream();
+        using (var writer = new BinaryWriter(stream, System.Text.Encoding.UTF8, leaveOpen: true))
+        {
+            foreach (var i in ints) writer.Write(i);
+        }
+        stream.Position = 0;
+        return new AsaArchive(NullLogger.Instance, stream, "synthetic-cryo")
+        {
+            SaveVersion = saveVersion,
+            IsCryopod = true,
+        };
+    }
 }
