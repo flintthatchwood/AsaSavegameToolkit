@@ -70,11 +70,12 @@ public class ObjectReference
 
         if (referenceType == 1)
         {
-            // Path reference (FName)
+            // Path reference. Cryopod paths are always inline strings, even when the payload has a name table
+            // (e.g. item classes in a cryopodded Gacha's ResourceProduction).
             return new ObjectReference
             {
                 IsPath = true,
-                Path = archive.ReadFName()
+                Path = new FName(int.MinValue, 0, archive.ReadString())
             };
         }
         else
