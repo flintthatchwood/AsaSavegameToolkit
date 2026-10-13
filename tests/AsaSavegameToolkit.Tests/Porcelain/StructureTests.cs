@@ -28,7 +28,7 @@ public class StructureTests
             Int("OriginalPlacerID", 456),
             Text("OriginalPlacedTimeStamp", "Placed"),
             Double("OriginalCreationTime", 800),
-            Double("LastAllyInRangeTimeSerialized", 850),
+            Double("LastInAllyRangeTimeSerialized", 850),
             Bool("bHasFuel", true),
             Bool("bLastToggleActivated", true),
             Bool("bIsPinLocked", true),
