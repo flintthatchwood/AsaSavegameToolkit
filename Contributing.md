@@ -54,6 +54,9 @@ private static AsaPropertyHeader? ReadPre14(AsaArchive archive)
 - **No delta logic.** Do not implement a legacy reader as a patch or override of the current format. Each reader reads everything it needs directly from the archive.
 - **One bounds check.** Individual readers should only throw exceptions if the data being can't be handled by any pre{Version} fallback. They shouldn't perform any "too new" checks on the version.  The outer "Reader" classes should perform any max version guards.
 - **Name legacy readers by the version they predate.** For example, `ReadPre14` handles saves from before version 14, and `ReadPre11` handles saves from before version 11. This will prevent churn in method names every time a new version is added.
+- **Chain earlier boundaries at the top of legacy readers.** A `ReadPre14` handler can immediately delegate to `ReadPre12` for versions below 12; its remaining body then handles versions 12-13 without further version checks.
+- **Separate archive formats before parsing their payloads.** World saves, standalone profile/tribe files, and cryopods can use different layouts at the same version. Route these formats to dedicated handlers before consuming payload bytes. A version discriminator stored in the header must be read before choosing its handler.
+- **Share only version-independent logic.** Helpers for unchanged element layouts or property dispatch are fine; a legacy handler must not call the latest handler and patch its result.
 
 If `Read()` from v14 continues to work for v15, then none of the class's methods need to change names.  If v15 breaks reading for a class, rename the `Read()` method to `ReadPre15()` and implement a new, complete `Read()` method
 

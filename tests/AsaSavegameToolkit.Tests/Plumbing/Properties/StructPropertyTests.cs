@@ -1,5 +1,6 @@
 using AsaSavegameToolkit.Plumbing.Primitives;
 using AsaSavegameToolkit.Plumbing.Properties;
+using AsaSavegameToolkit.Plumbing.Readers;
 using AsaSavegameToolkit.Tests.Helpers;
 
 namespace AsaSavegameToolkit.Tests.Plumbing.Properties;
@@ -7,6 +8,48 @@ namespace AsaSavegameToolkit.Tests.Plumbing.Properties;
 [TestClass]
 public class StructPropertyTests : SaveTests
 {
+    [TestMethod]
+    [DataRow((short)13, false)]
+    [DataRow((short)14, false)]
+    [DataRow((short)15, false)]
+    [DataRow((short)7, true)]
+    [DataRow((short)14, true)]
+    public void Read_UsesFormatSpecificGuidWithoutConsumingFollowingData(short saveVersion, bool isArkFile)
+    {
+        var guid = Guid.Parse("54c8647e-4dd4-4cb4-bd28-a87ab450cc06");
+        var type = FPropertyTypeName.Create(
+            new FName(-1, 0, "StructProperty"),
+            new FName(-1, 0, "IntPoint"),
+            new FName(-1, 0, guid.ToString()));
+        var tag = new PropertyTag { Name = new FName(-1, 0, "Coordinates"), Type = type, Size = 8 };
+
+        using var stream = new MemoryStream();
+        using (var writer = new BinaryWriter(stream, System.Text.Encoding.UTF8, leaveOpen: true))
+        {
+            if (!isArkFile && saveVersion < 14)
+                writer.Write(AsaArchive.ConvertToBytes(guid));
+            writer.Write(123);
+            writer.Write(456);
+            writer.Write(0x12345678);
+        }
+        stream.Position = 0;
+        using var archive = new AsaArchive(Microsoft.Extensions.Logging.Abstractions.NullLogger.Instance, stream, "synthetic-struct")
+        {
+            SaveVersion = saveVersion,
+            IsArkFile = isArkFile
+        };
+
+        var property = StructProperty.Read(archive, tag);
+
+        Assert.AreSame(tag, property.Tag);
+        Assert.AreEqual(isArkFile ? (Guid?)null : guid, property.StructGuid);
+        var value = Assert.IsInstanceOfType<FIntPoint>(property.Value);
+        Assert.AreEqual(123, value.X);
+        Assert.AreEqual(456, value.Y);
+        Assert.AreEqual(stream.Length - 4, archive.Position);
+        Assert.AreEqual(0x12345678, archive.ReadInt32());
+    }
+
     // StructProperty == 70 C6 A4 FA
 
     [TestMethod]
@@ -34,6 +77,30 @@ public class StructPropertyTests : SaveTests
         var second = Assert.IsInstanceOfType<UInt32Property>(properties[1]);
         Assert.AreEqual("ItemID2", second.Tag.Name.FullName);
         Assert.AreEqual(111026336u, second.Value);
+    }
+
+    [TestMethod]
+    public void StructProperty_CanRead_IntPoint()
+    {
+        var type = FPropertyTypeName.Create(new FName(-1, 0, "StructProperty"), new FName(-1, 0, "IntPoint"));
+        var tag = new PropertyTag { Name = new FName(-1, 0, "Coordinates"), Type = type, Size = 8 };
+
+        using var stream = new MemoryStream();
+        using (var writer = new BinaryWriter(stream, System.Text.Encoding.UTF8, leaveOpen: true))
+        {
+            writer.Write(123);
+            writer.Write(456);
+        }
+        stream.Position = 0;
+        using var archive = new AsaArchive(Microsoft.Extensions.Logging.Abstractions.NullLogger.Instance, stream, "synthetic")
+        {
+            SaveVersion = 14
+        };
+
+        var value = Assert.IsInstanceOfType<FIntPoint>(StructProperty.ReadValue(archive, tag));
+        Assert.AreEqual(123, value.X);
+        Assert.AreEqual(456, value.Y);
+        Assert.AreEqual("IntPoint(123, 456)", value.ToString());
     }
 
     [TestMethod]

@@ -1,6 +1,5 @@
 using System.Diagnostics.CodeAnalysis;
-using System.Numerics;
-using AsaSavegameToolkit.Plumbing.Primitives;
+
 using AsaSavegameToolkit.Plumbing.Properties;
 using AsaSavegameToolkit.Plumbing.Records;
 
@@ -75,7 +74,8 @@ public static class PlumbingExtensions
         if (customItemDatas == null)
             return false;
 
-        return customItemDatas.Any(cid => cid.CustomDataBytes.Length > 0
+        return customItemDatas.Any(cid => cid.CustomDataName == "Dino"
+                                       && cid.CustomDataBytes.Length > 0
                                        && cid.CustomDataBytes[0].Length > 0);
     }
 

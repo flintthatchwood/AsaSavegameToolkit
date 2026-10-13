@@ -28,4 +28,4 @@ jobs:
       run: dotnet pack -o .work/dist
 
     - name: Run tests
-      run: dotnet test
+      run: dotnet run --project tests/AsaSavegameToolkit.Tests/AsaSavegameToolkit.Tests.csproj --no-restore -- --results-directory .work/output/ci-tests --report-trx

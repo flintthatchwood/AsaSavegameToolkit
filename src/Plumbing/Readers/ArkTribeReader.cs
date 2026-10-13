@@ -28,6 +28,11 @@ namespace AsaSavegameToolkit.Plumbing.Readers
 
         public List<GameObjectRecord> Read(string saveDirectory, CancellationToken cancellationToken = default)
         {
+            if (!Directory.Exists(saveDirectory))
+            {
+                return [];
+            }
+
             var tribeFiles = Directory.EnumerateFiles(saveDirectory, "*.arktribe");
 
             ConcurrentBag<GameObjectRecord> tribeBag = new();

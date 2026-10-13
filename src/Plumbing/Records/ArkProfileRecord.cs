@@ -51,7 +51,7 @@ namespace AsaSavegameToolkit.Plumbing.Records
 
             ObjectTypeFlags objectType = ObjectTypeFlags.Actor;
 
-            return new GameObjectRecord(uuid, new Primitives.FName(0, 0, classPath), names, properties, 0, objectType, default);
+            return new GameObjectRecord(uuid, new Primitives.FName(0, 0, classPath), names ?? [], properties, 0, objectType, default);
         }
 
         private static GameObjectRecord ReadPre7(AsaArchive archive, Guid uuid)

@@ -1,8 +1,5 @@
 using AsaSavegameToolkit.Plumbing.Primitives;
-using AsaSavegameToolkit.Plumbing.Readers;
 using AsaSavegameToolkit.Plumbing.Records;
-using System.Drawing;
-using System.Reflection.Metadata.Ecma335;
 
 namespace AsaSavegameToolkit.Plumbing.Properties;
 
@@ -121,20 +118,17 @@ public class StructProperty : Property<object>
     
     public static StructProperty Read(Readers.AsaArchive archive, PropertyTag tag)
     {
-        Guid? guid = null;
         if (archive.IsArkFile)
         {
-            var structValue = ReadValue(archive, tag);
-            return new StructProperty
-            {
-                Tag = tag,
-                StructGuid = guid,
-                Value = structValue
-            };
+            return ReadArkFile(archive, tag);
         }
 
+        if (archive.SaveVersion < 14)
+        {
+            return ReadPre14(archive, tag);
+        }
 
-        guid = ReadStructGuid(archive, tag);
+        var guid = ReadStructGuid(tag);
         var value = ReadValue(archive, tag);
 
         return new StructProperty
@@ -145,22 +139,33 @@ public class StructProperty : Property<object>
         };
     }
 
-
-    /// <summary>
-    /// Reads the optional struct GUID (v13 only).
-    /// In v13 non-array structs: 16 bytes (usually all zeros).
-    /// In v14: No GUID in data.
-    /// </summary>
-    private static Guid? ReadStructGuid(Readers.AsaArchive archive, PropertyTag tag)
+    private static StructProperty ReadPre14(Readers.AsaArchive archive, PropertyTag tag)
     {
-        if (archive.SaveVersion < 14)
+        var guid = archive.ReadGuid();
+        var value = ReadValue(archive, tag);
+
+        return new StructProperty
         {
-            // v13: Always read 16-byte GUID
-            return archive.ReadGuid();
-        }
-        
-        // v14: Check if GUID is in the type parameters
-        // StructProperty(StructName, Guid) would have 2 parameters
+            Tag = tag,
+            StructGuid = guid,
+            Value = value
+        };
+    }
+
+    private static StructProperty ReadArkFile(Readers.AsaArchive archive, PropertyTag tag)
+    {
+        return new StructProperty
+        {
+            Tag = tag,
+            Value = ReadValue(archive, tag)
+        };
+    }
+    
+    /// <summary>
+    /// Reads the optional struct GUID from v14+ type metadata, without consuming payload bytes.
+    /// </summary>
+    private static Guid? ReadStructGuid(PropertyTag tag)
+    {
         if (tag.Type.Parameters.Count > 1)
         {
             // Parse GUID from FName string representation
@@ -218,15 +223,15 @@ public class StructProperty : Property<object>
 
             // Custom ark structs with their own readers - read using custom logic
             "CustomItemData" => CustomItemDataRecord.Read(archive),
+            "DinoAncestorsEntry" => DinoAncestorsEntryRecord.Read(archive),
 
             // Unknown struct types - read as generic property bags
             _ => ReadGenericStruct(archive) // Fallback to generic
         };
     }
 
-    private static FIntPoint ReadIntPoint(AsaArchive archive)
+    private static FIntPoint ReadIntPoint(Readers.AsaArchive archive)
     {
         return new FIntPoint(archive.ReadInt32(), archive.ReadInt32());
-
     }
 }

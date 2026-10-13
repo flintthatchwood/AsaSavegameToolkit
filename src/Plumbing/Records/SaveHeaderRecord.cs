@@ -10,16 +10,20 @@ public class SaveHeaderRecord
     /// Save file format version (determines parsing logic).
     /// </summary>
     public required short SaveVersion { get; init; }
-    
-    public double GameTime { get; init; }
 
+    public required double GameTime { get; init; }
+
+    /// <summary>
+    /// The name of the map/level for this save file.
+    /// </summary>
+    public string MapName { get; init; } = "Unknown";
+    
     /// <summary>
     /// Name table - maps integer IDs to string names.
     /// Used throughout the save file to reduce duplication.
     /// </summary>
     public required Dictionary<int, string> NameTable { get; init; }
-    public string MapName { get; private set; }
-
+    
     /// <summary>
     /// Reads a SaveHeader from the archive for save version 14+ (current format).
     /// Automatically delegates to ReadPre14() for older save versions.
@@ -35,17 +39,19 @@ public class SaveHeaderRecord
         {
             return ReadPre14(archive, saveVersion);
         }
-
+        
         // Version 14+ format
         archive.ReadInt64(); // Unknown1 + Unknown2 (8 bytes in v14+)
         
         // Read name table offset
         var nameTableOffset = archive.ReadInt32();
+
+        // Read game time
         var gameTime = archive.ReadDouble();
 
         // Read map name
         _ = archive.ReadBytes(8);
-        var mapName = archive.ReadString()??"Unknown";
+        var mapName = archive.ReadString() ?? "Unknown";
 
         // Skip to name table
         archive.Position = nameTableOffset;
@@ -55,36 +61,33 @@ public class SaveHeaderRecord
         
         return new SaveHeaderRecord
         {
-            MapName = mapName,
             SaveVersion = saveVersion,
             GameTime = gameTime,
+            MapName = mapName,
             NameTable = nameTable
         };
     }
     
     /// <summary>
-    /// Reads a SaveHeader for save versions 11-13 (legacy format).
+    /// Reads a SaveHeader for save versions 12-13, delegating older layouts to ReadPre12().
     /// </summary>
     private static SaveHeaderRecord ReadPre14(Readers.AsaArchive archive, short saveVersion)
     {
-        // Version 11-13 format (no 8-byte unknown field)
+        if (saveVersion < 12)
+        {
+            return ReadPre12(archive, saveVersion);
+        }
         
         // Read name table offset
         var nameTableOffset = archive.ReadInt32();
+
+        // Read game time
         var gameTime = archive.ReadDouble();
-        
-        if(saveVersion > 11)
-        {
-            _ = archive.ReadInt32();
-        }
 
-        //game files
+        _ = archive.ReadInt32();
+
         var dataCount = archive.ReadInt32();
-        var mapName = archive.ReadString()??"Unknown";
-
-
-
-
+        var mapName = archive.ReadString() ?? "Unknown";
 
         // Skip to name table
         archive.Position = nameTableOffset;
@@ -94,9 +97,28 @@ public class SaveHeaderRecord
         
         return new SaveHeaderRecord
         {
-            MapName = mapName,
             SaveVersion = saveVersion,
             GameTime = gameTime,
+            MapName = mapName,
+            NameTable = nameTable
+        };
+    }
+
+    private static SaveHeaderRecord ReadPre12(Readers.AsaArchive archive, short saveVersion)
+    {
+        var nameTableOffset = archive.ReadInt32();
+        var gameTime = archive.ReadDouble();
+        _ = archive.ReadInt32();
+        var mapName = archive.ReadString() ?? "Unknown";
+
+        archive.Position = nameTableOffset;
+        var nameTable = ReadNameTable(archive);
+
+        return new SaveHeaderRecord
+        {
+            SaveVersion = saveVersion,
+            GameTime = gameTime,
+            MapName = mapName,
             NameTable = nameTable
         };
     }

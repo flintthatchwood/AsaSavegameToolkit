@@ -1,12 +1,47 @@
 using AsaSavegameToolkit.Plumbing.Primitives;
 using AsaSavegameToolkit.Plumbing.Properties;
+using AsaSavegameToolkit.Plumbing.Readers;
 using AsaSavegameToolkit.Tests.Helpers;
+using Microsoft.Extensions.Logging.Abstractions;
 
 namespace AsaSavegameToolkit.Tests.Plumbing.Properties;
 
 [TestClass]
 public class ArrayPropertyTests : SaveTests
 {
+    [TestMethod]
+    [DataRow((short)13, false)]
+    [DataRow((short)14, false)]
+    [DataRow((short)15, false)]
+    [DataRow((short)7, true)]
+    [DataRow((short)14, true)]
+    public void ReadValue_SharedElementLayoutPreservesPosition(short saveVersion, bool isArkFile)
+    {
+        var type = FPropertyTypeName.Create(new FName(-1, 0, "ArrayProperty"), new FName(-1, 0, "IntProperty"));
+        var tag = new PropertyTag { Name = new FName(-1, 0, "Values"), Type = type };
+
+        using var stream = new MemoryStream();
+        using (var writer = new BinaryWriter(stream, System.Text.Encoding.UTF8, leaveOpen: true))
+        {
+            writer.Write(2);
+            writer.Write(123);
+            writer.Write(456);
+            writer.Write(0x12345678);
+        }
+        stream.Position = 0;
+        using var archive = new AsaArchive(NullLogger.Instance, stream, "synthetic-array")
+        {
+            SaveVersion = saveVersion,
+            IsArkFile = isArkFile
+        };
+
+        var values = ArrayProperty.ReadValue(archive, tag);
+
+        CollectionAssert.AreEqual(new object[] { 123, 456 }, values);
+        Assert.AreEqual(stream.Length - 4, archive.Position);
+        Assert.AreEqual(0x12345678, archive.ReadInt32());
+    }
+
     // ArrayProperty == 6B C5 FD 58
 
     [TestMethod]

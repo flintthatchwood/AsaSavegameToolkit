@@ -1,10 +1,7 @@
+using System.Collections;
+
 using AsaSavegameToolkit.Plumbing.Primitives;
 using AsaSavegameToolkit.Plumbing.Readers;
-using System;
-using System.Collections;
-using System.Diagnostics.CodeAnalysis;
-using System.Reflection;
-using System.Xml.Linq;
 
 namespace AsaSavegameToolkit.Plumbing.Properties;
 
@@ -32,7 +29,12 @@ public class ArrayProperty : Property<IList>
     /// </summary>
     public static IList ReadValue(Readers.AsaArchive archive, PropertyTag tag)
     {
-        if(archive.SaveVersion < 14 || archive.IsArkFile)
+        if (archive.IsArkFile)
+        {
+            return ReadValueArkFile(archive, tag);
+        }
+
+        if (archive.SaveVersion < 14)
         {
             return ReadValuePre14(archive, tag);
         }
@@ -42,7 +44,12 @@ public class ArrayProperty : Property<IList>
         if (elementType == null)
             throw new InvalidOperationException($"ArrayProperty must have an ElementType parameter");
         
-        // Read element count
+        return ReadElements(archive, elementType);
+    }
+
+    private static IList ReadElements(Readers.AsaArchive archive, FPropertyTypeName elementType)
+    {
+        // All non-struct arrays and v14+ struct arrays share this element layout.
         var count = archive.ReadInt32();
 
         // The minimum size for any other element is 1 byte, so we can do a quick sanity check to prevent OOM or excessive memory allocation
@@ -52,7 +59,7 @@ public class ArrayProperty : Property<IList>
         }
 
         // Avoid boxing byte arrays - if element type is byte, read as byte array directly
-        if (elementType.TypeName.FullName == "ByteProperty" )
+        if (elementType.TypeName.FullName == "ByteProperty")
         {
             if (elementType.ParameterCount == 0)
             {
@@ -60,7 +67,7 @@ public class ArrayProperty : Property<IList>
                 return byteArray;
             }
 
-            //enum array
+            // enum array
             var enumElements = new object[count];
             for (int i = 0; i < count; i++)
             {
@@ -93,13 +100,9 @@ public class ArrayProperty : Property<IList>
         if (elementType == null)
             throw new InvalidOperationException($"ArrayProperty must have an ElementType parameter");
         
-
         // StructProperty arrays have special format in v13
         if (elementType.TypeName.FullName == "StructProperty")
         {
-            if (archive.IsArkFile)
-                return ReadStructArrayFile(archive, tag);
-
             var structArray = ReadStructArrayPre14(archive, out var structType);
             // Fix up the tag to record the resolved struct type.
             // We must NOT mutate the interned elementType instance — create new interned
@@ -109,60 +112,20 @@ public class ArrayProperty : Property<IList>
             return structArray;
         }
 
-        // Standard array reading for non-struct types
-        var count = archive.ReadInt32();
+        return ReadElements(archive, elementType);
+    }
 
-        // The minimum size for any other element is 1 byte, so we can do a quick sanity check to prevent OOM or excessive memory allocation
-        if (count > archive.RemainingLength)
+    private static IList ReadValueArkFile(Readers.AsaArchive archive, PropertyTag tag)
+    {
+        var elementType = tag.Type.GetParameter(0)
+            ?? throw new InvalidOperationException("ArrayProperty must have an ElementType parameter");
+
+        if (elementType.TypeName.FullName == "StructProperty")
         {
-            throw new AsaDataException($"Invalid array count read at offset {archive.Position - 4} of {archive.FileName}");
+            return ReadStructArrayFile(archive, tag);
         }
 
-        // Avoid boxing byte arrays - if element type is byte, read as byte array directly
-        if (elementType.TypeName.FullName == "ByteProperty")
-        {
-            var byteArray = archive.ReadBytes(count);
-            return byteArray;
-        }
-
-        var elements = new object[count];
-
-        // Read each element based on element type
-
-        for (int i = 0; i < count; i++)
-        {
-            if (archive.IsArkFile || archive.IsCryopod)
-            {
-                switch (elementType.TypeName.Name)
-                {
-                    case "ObjectProperty":
-                        var dataTypeSize = (tag.Size - 4) / count; // rough size of each element based on total size in tag (minus 4 bytes for count)
-
-                        if (dataTypeSize > 8)
-                        {
-                            elements[i] = ReadValue(archive, elementType);
-                        }
-                        else
-                        {
-                            elements[i] = archive.ReadInt64();
-                        }
-
-                        break;
-                    default:
-                        elements[i] = ReadValue(archive, elementType);
-                        break;
-                }
-            }
-            else
-            {
-                elements[i] = ReadValue(archive, elementType);
-            }
-
-
-
-        }
-        
-        return elements;
+        return ReadElements(archive, elementType);
     }
     
     /// <summary>
@@ -172,9 +135,6 @@ public class ArrayProperty : Property<IList>
     /// </summary>
     private static IList ReadStructArrayPre14(Readers.AsaArchive archive, out FPropertyTypeName structType)
     {
-
-
-
         // Read element count first
         var count = archive.ReadInt32();
 
@@ -208,12 +168,10 @@ public class ArrayProperty : Property<IList>
 
     private static IList ReadStructArrayFile(AsaArchive archive, PropertyTag tag)
     {
-
-        if(archive.SaveVersion < 7)
+        if (archive.SaveVersion < 7)
         {
             return ReadStructArrayFilePre7(archive, tag);
         }
-
 
         var checkInt1 = archive.ReadInt32(); // unknown
         var structKey = archive.ReadString();
@@ -225,26 +183,23 @@ public class ArrayProperty : Property<IList>
 
         FPropertyTypeName arrayTypeStruct = FPropertyTypeName.Create(tag.Type.Parameters[0].TypeName, new FName(0, 0, structKey));
 
-
         var count = archive.ReadInt32();
 
         var elements = new object[count];
-        for(int i = 0; i < count; i++)
+        for (int i = 0; i < count; i++)
         {
             var structTag = new PropertyTag
             {
-                Name = new FName(0,0, structKey),
+                Name = new FName(0, 0, structKey),
                 Type = arrayTypeStruct,
                 ArrayIndex = i,
                 Size = 1
             };
             var propValue = StructProperty.ReadValue(archive, structTag);
             elements[i] = propValue;
-
         }
 
         return elements;
-
     }
 
     private static IList ReadStructArrayFilePre7(AsaArchive archive, PropertyTag tag)

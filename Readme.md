@@ -22,7 +22,7 @@ dotnet restore
 dotnet build
 
 # Run tests
-dotnet test
+dotnet run --project tests/AsaSavegameToolkit.Tests/AsaSavegameToolkit.Tests.csproj -- --results-directory .work/output/tests --report-trx
 ```
 
 ## CI/CD
@@ -30,6 +30,6 @@ dotnet test
 The project uses GitHub Actions for continuous integration:
 - **Build and Test**: Builds and tests on Ubuntu
 - **Code Coverage**: Generates coverage reports
-- **Release Artifacts**: Creates nuget packages that will eventually be released to nuget.org
+- **Release**: Publishes NuGet packages and GitHub releases. The source-controlled `VersionPrefix` sets the base version; nonproduction runs append `alpha.<run number>` and create a prerelease, while production runs publish the base version.
 
 See [.github/workflows/build-and-test.yml](.github/workflows/build-and-test.yml) for details.

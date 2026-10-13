@@ -1,7 +1,3 @@
-using AsaSavegameToolkit.Plumbing.Readers;
-using Microsoft.Extensions.Logging;
-using Microsoft.Extensions.Logging.Abstractions;
-
 namespace AsaSavegameToolkit.Plumbing.Records;
 
 /// <summary>
@@ -32,14 +28,14 @@ public class GameModeCustomBytesRecord
     ///   [tribe header index at tribeHeaderOffset + 12]
     ///     for each tribe (16 bytes): UInt32 TribeId, Int32 Unknown, Int32 Offset, Int32 Size
     ///   [profile section header immediately after tribe entries]
-    ///     [4] profileHeaderRelOffset  — relative to (this field's start + 4)
+    ///     [4] profileHeaderRelOffset  — relative to the end of this 8-byte header
     ///     [4] profileCount
     ///   [profile data blobs starting at profileSectionHeader + 8]
-    ///   [profile header index at profileSectionHeader + 4 + profileHeaderRelOffset]
+    ///   [profile header index at profileSectionHeader + 8 + profileHeaderRelOffset]
     ///     for each profile (16 bytes): Int64 EosId, Int32 Offset, Int32 Size
     ///
-    /// Each tribe/profile blob uses the old archive-version-7 format
-    /// (not the ASA GameObjectRecord format) — raw bytes are stored for deferred parsing.
+    /// Each tribe/profile blob uses the old archive format (not the ASA GameObjectRecord format) — raw bytes are
+    /// stored for deferred parsing. Most are archive version 7, but older worlds also have 5 and 6.
     /// </summary>
     public static GameModeCustomBytesRecord Read(Readers.AsaArchive archive)
     {
@@ -76,30 +72,27 @@ public class GameModeCustomBytesRecord
 
         // --- Profile section header (immediately after tribe entries) ---
         var profileHeaderOffset  = archive.ReadInt32();
-        // The profile header offset is relative to the end of this field
-        var profileHeaderStart = archive.Position;
-        var profileHeaderPosition  = profileHeaderStart + profileHeaderOffset;
-
         var profileCount         = archive.ReadInt32();
-        // the minimim size of the profile header is profileCount * 16, so we can do a quick check to avoid seeking to an invalid position later
-        //if (profileCount * 16 > archive.Length - profileHeaderPosition)
-        //{
-        //    throw new AsaDataException($"Profile count {profileCount} is too large for the remaining data length {archive.Length - profileHeaderPosition}.");
-        //}
 
-        // Profile blob data starts right after the 8-byte profile section header
-        var profileDataStart = archive.Position;
+        // Profile blob data starts right after the 8-byte profile section header.
+        // Like the tribe header offset, the profile header offset is relative to the start of the data.
+        var profileDataStart      = archive.Position;
+        var profileHeaderPosition = profileDataStart + profileHeaderOffset;
+
+        // the minimim size of the profile header is profileCount * 16, so we can do a quick check to avoid seeking to an invalid position later
+        if (profileCount * 16 > archive.Length - profileHeaderPosition)
+        {
+            throw new AsaDataException($"Profile count {profileCount} is too large for the remaining data length {archive.Length - profileHeaderPosition}.");
+        }
 
         archive.Position = profileHeaderPosition;
-        var someInt = archive.ReadInt32();
-
         var profileHeaders = new List<ProfileHeaderEntry>(profileCount);
         for (int i = 0; i < profileCount; i++)
         {
             profileHeaders.Add(new ProfileHeaderEntry(
-                EntryId: archive.ReadUInt64(), 
-                Offset: archive.ReadInt32(),                
-                Size: archive.ReadInt32()
+                EosId:  archive.ReadInt64(),
+                Offset: archive.ReadInt32(),
+                Size:   archive.ReadInt32()
             ));
         }
 
@@ -107,7 +100,6 @@ public class GameModeCustomBytesRecord
         // tribe byte checks get complicated, so lets just cap it at the length of the archive to avoid seeking to an invalid position
         // tribe data has size internally, so we'll just sum and check
         var totalTribeDataSize = tribeHeaders.Sum(hdr => hdr.Size);
-        var diffSize = archive.Length - tribeDataStart;
         if (totalTribeDataSize > archive.Length - tribeDataStart)
         {
             throw new AsaDataException($"Total tribe data size {totalTribeDataSize} is too large for the remaining data length {archive.Length - tribeDataStart}.");
@@ -120,36 +112,21 @@ public class GameModeCustomBytesRecord
             throw new AsaDataException($"Total profile data size {totalProfileDataSize} is too large for the remaining data length {archive.Length - profileDataStart}.");
         }
 
-
-        List<EmbeddedTribeEntry> tribes = new List<EmbeddedTribeEntry>();
+        var tribes = new List<EmbeddedTribeEntry>(tribeCount);
         foreach (var hdr in tribeHeaders)
         {
-            if (hdr.TribeId == 0) continue; // deleted tribe entry, skip
-
             archive.Position = tribeDataStart + hdr.Offset;
-            
-            tribes.Add(new EmbeddedTribeEntry()
-            {
-                TribeId = hdr.TribeId,
-                RawBlob = archive.ReadBytes(hdr.Size)
-            });
+            var blobBytes = archive.ReadBytes(hdr.Size);
+            tribes.Add(new EmbeddedTribeEntry { TribeId = hdr.TribeId, RawBlob = blobBytes });
         }
-
 
         // --- Slice profile blobs ---
-        List<EmbeddedProfileEntry> profiles = new List<EmbeddedProfileEntry>();
+        var profiles = new List<EmbeddedProfileEntry>(profileCount);
         foreach (var hdr in profileHeaders)
         {
-            if (hdr.EntryId == 0) continue; // deleted profile entry, skip
-
-            archive.Position = profileDataStart + hdr.Offset;
-            profiles.Add(new EmbeddedProfileEntry()
-            {
-                EosId = (long)hdr.EntryId,
-                RawBlob = archive.ReadBytes(hdr.Size)
-            });
+            var blobBytes = hdr.Size > 0 ? ReadProfileBlob(archive, profileDataStart, hdr) : [];
+            profiles.Add(new EmbeddedProfileEntry { EosId = hdr.EosId, RawBlob = blobBytes });
         }
-
 
         return new GameModeCustomBytesRecord
         {
@@ -159,10 +136,17 @@ public class GameModeCustomBytesRecord
         };
     }
 
+    private static byte[] ReadProfileBlob(Readers.AsaArchive archive, long profileDataStart, ProfileHeaderEntry hdr)
+    {
+        archive.Position = profileDataStart + hdr.Offset;
+        return archive.ReadBytes(hdr.Size);
+    }
 
     private readonly record struct TribeHeaderEntry(uint TribeId, int Unknown, int Offset, int Size);
-    private readonly record struct ProfileHeaderEntry(ulong EntryId, int Offset, int Size);
+    private readonly record struct ProfileHeaderEntry(long EosId, int Offset, int Size);
 }
+
+/// <summary>A tribe blob sliced from the GameModeCustomBytes record.</summary>
 public class EmbeddedTribeEntry
 {
     /// <summary>Unique tribe identifier.</summary>

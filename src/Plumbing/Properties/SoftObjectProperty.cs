@@ -16,16 +16,11 @@ public class SoftObjectProperty : Property<string[]>
     /// </summary>
     public static SoftObjectProperty Read(AsaArchive archive, PropertyTag tag)
     {
-        var propertyValueStart = archive.Position;
-
-
-        var newProperty = new SoftObjectProperty
+        return new SoftObjectProperty
         {
             Tag = tag,
             Value = ReadValue(archive)
         };
-
-        return newProperty;
     }
 
     /// <summary>
@@ -49,6 +44,5 @@ public class SoftObjectProperty : Property<string[]>
             names.Add(name);
         }
         return [.. names];
-
     }
 }

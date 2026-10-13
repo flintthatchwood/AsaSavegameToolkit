@@ -1,7 +1,7 @@
 ﻿<Project Sdk="Microsoft.NET.Sdk">
 
   <PropertyGroup>
-    <VersionPrefix>0.7.0</VersionPrefix>
+    <VersionPrefix>1.0.0</VersionPrefix>
 
     <TargetFramework>net8.0</TargetFramework>
     <Nullable>enable</Nullable>
@@ -21,20 +21,16 @@
   </PropertyGroup>
 
   <ItemGroup>
-    <PackageReference Include="CommunityToolkit.HighPerformance" Version="8.4.2" />
-    <PackageReference Include="Microsoft.Extensions.Logging" Version="10.0.6" />
-    <PackageReference Include="Microsoft.Data.Sqlite" Version="10.0.6" />
+    <PackageReference Include="Microsoft.Extensions.Logging" Version="10.0.2" />
+    <PackageReference Include="Microsoft.Data.Sqlite" Version="10.0.2" />
+    <PackageReference Include="SQLitePCLRaw.lib.e_sqlite3" Version="2.1.12" />
   </ItemGroup>
 
   <ItemGroup>
     <None Include="Readme.md" Pack="true" PackagePath="\" />
     <None Include="icon.png" Pack="true" PackagePath="\" />
-  </ItemGroup>
-
-  <ItemGroup>
-    <None Update="maps.json">
-      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
-    </None>
+    <None Remove="maps.json" />
+    <EmbeddedResource Include="maps.json" LogicalName="AsaSavegameToolkit.maps.json" />
   </ItemGroup>
 
 </Project>

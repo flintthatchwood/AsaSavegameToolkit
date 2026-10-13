@@ -1,130 +1,162 @@
-{
-  "maps": [
-    {
-      "DisplayName": "Lost Colony",
-      "MapName": "lostcolony_wp",
-      "ImageFile": "map_lostcolony_wp.jpg",
-      "OffsetY": 50.0,
-      "ScaleY": 8158.0,
-      "OffsetX": 50.0,
-      "ScaleX": 8164.0
-    },
-    {
-      "DisplayName": "The Island",
-      "MapName": "theisland_wp",
-      "ImageFile": "map_theisland_wp.jpg",
-      "OffsetY": 50.0,
-      "ScaleY": 6850.0,
-      "OffsetX": 50.0,
-      "ScaleX": 6850.0
-    },
-    {
-      "DisplayName": "The Center",
-      "MapName": "thecenter_wp",
-      "ImageFile": "map_thecenter_asa.jpg",
-      "OffsetY": 32.5,
-      "ScaleY": 10380.52,
-      "OffsetX": 50.5,
-      "ScaleX": 10374.29
-    },
-    {
-      "DisplayName": "Scorched Earth",
-      "MapName": "scorchedearth_wp",
-      "ImageFile": "map_scorchedearth_wp.jpg",
-      "OffsetY": 50.0,
-      "ScaleY": 8000.0,
-      "OffsetX": 50.0,
-      "ScaleX": 8000.0
-    },
-    {
-      "DisplayName": "Aberration",
-      "MapName": "aberration_wp",
-      "ImageFile": "map_aberration_wp.png",
-      "OffsetY": 50.0,
-      "ScaleY": 8000.0,
-      "OffsetX": 50.0,
-      "ScaleX": 8000.0
-    },
-    {
-      "DisplayName": "Extinction",
-      "MapName": "extinction_wp",
-      "ImageFile": "map_extinction_wp.png",
-      "OffsetY": 50.0,
-      "ScaleY": 6850.0,
-      "OffsetX": 50.0,
-      "ScaleX": 6850.0
-    },
-    {
-      "DisplayName": "Amissa",
-      "MapName": "amissa_wp",
-      "ImageFile": "map_grid.jpg",
-      "OffsetY": 46.9,
-      "ScaleY": 11375.0,
-      "OffsetX": 48.1,
-      "ScaleX": 11400
-    },
-    {
-      "DisplayName": "Svartalfheim",
-      "MapName": "Svartalfheim_wp",
-      "ImageFile": "map_svartalfheim_wp.png",
-      "OffsetY": 50.0,
-      "ScaleY": 4055.0,
-      "OffsetX": 50.0,
-      "ScaleX": 4055.0
-    },
-    {
-      "DisplayName": "Forglar",
-      "MapName": "forglar_wp",
-      "ImageFile": "map_forglar.jpg",
-      "OffsetY": 61.4,
-      "ScaleY": 7150.0,
-      "OffsetX": 69.8,
-      "ScaleX": 7945.0
-    },
-    {
-      "DisplayName": "Insaluna",
-      "MapName": "insaluna_wp",
-      "ImageFile": "map_grid.jpg",
-      "OffsetY": 50.0,
-      "ScaleY": 9400.0,
-      "OffsetX": 50.0,
-      "ScaleX": 9400.0
-    },
-    {
-      "DisplayName": "Temptress Lagoon",
-      "MapName": "temptress_wp",
-      "ImageFile": "map_grid.jpg",
-      "OffsetY": 50.0,
-      "ScaleY": 8150.0,
-      "OffsetX": 50.0,
-      "ScaleX": 8150.0
-    },
-    {
-      "DisplayName": "Reverence",
-      "MapName": "reverence_wp",
-      "ImageFile": "map_grid.jpg",
-      "OffsetY": 50.0,
-      "ScaleY": 8125.0,
-      "OffsetX": 50.0,
-      "ScaleX": 8125.0
-    },
-    {
-      "DisplayName": "Nyrandil",
-      "MapName": "nyrandil.ark",
-      "ImageFile": "map_grid.jpg",
-      "OffsetY": 50.0,
-      "ScaleY": 8175.0,
-      "OffsetX": 50.0,
-      "ScaleX": 8175.0
-    },
-    {
-      "DisplayName": "Astraeos",
-      "MapName": "astraeos_wp",
-      "ImageFile": "map_astraeos.png",
-      "OffsetY": 50.0,
-      "ScaleY": 16000.0,
-      "OffsetX": 50.0,
-      "ScaleX": 16000.0
-    }
-  ]
-}
+[
+  {
+    "DisplayName": "Aberration",
+    "MapName": "aberration_wp",
+    "CenterY": 0.0,
+    "ScaleY": 8000.0,
+    "CenterX": 0.0,
+    "ScaleX": 8000.0,
+    "Regions": [{ "Name": "default" }]
+  },
+  {
+    "DisplayName": "Amissa",
+    "MapName": "amissa_wp",
+    "CenterY": 35262.5,
+    "ScaleY": 11375.0,
+    "CenterX": 21660.0,
+    "ScaleX": 11400
+  },
+  {
+    "DisplayName": "Astraeos",
+    "MapName": "astraeos_wp",
+    "CenterY": 0.0,
+    "ScaleY": 16000.0,
+    "CenterX": 0.0,
+    "ScaleX": 16000.0,
+    "Regions": [{ "Name": "default" }]
+  },
+  {
+    "DisplayName": "Extinction",
+    "MapName": "extinction_wp",
+    "CenterY": 0.0,
+    "ScaleY": 6858.0,
+    "CenterX": 0.0,
+    "ScaleX": 6858.0,
+    "Regions": [{ "Name": "default" }]
+  },
+  {
+    "DisplayName": "Forglar",
+    "MapName": "forglar_wp",
+    "CenterY": -81901.0,
+    "ScaleY": 7181.88,
+    "CenterX": -157499.0,
+    "ScaleX": 7937.9,
+    "Regions": [{ "Name": "default" }]
+  },
+  {
+    "DisplayName": "Genesis",
+    "MapName": "genesis_wp",
+    "CenterY": 0.0,
+    "ScaleY": 22150.0,
+    "CenterX": -1.0,
+    "ScaleX": 22150.0,
+    "Regions": [
+      { "Name": "Main", "MaxZ": 150000.0 },
+      { "Name": "Ocean", "MinZ": 150000.0 }
+    ]
+  },
+  {
+    "DisplayName": "Insaluna",
+    "MapName": "insaluna_wp",
+    "CenterY": 0.0,
+    "ScaleY": 9400.0,
+    "CenterX": 0.0,
+    "ScaleX": 9400.0
+  },
+  {
+    "DisplayName": "Lost Colony",
+    "MapName": "lostcolony_wp",
+    "CenterY": 0.0,
+    "ScaleY": 8160.0,
+    "CenterX": 0.0,
+    "ScaleX": 8160.0,
+    "Regions": [{ "Name": "default" }]
+  },
+  {
+    "DisplayName": "Nyrandil",
+    "MapName": "nyrandil.ark",
+    "CenterY": 0.0,
+    "ScaleY": 8175.0,
+    "CenterX": 0.0,
+    "ScaleX": 8175.0
+  },
+  {
+    "DisplayName": "Ragnarok",
+    "MapName": "ragnarok_wp",
+    "CenterY": 0.0,
+    "ScaleY": 13100.0,
+    "CenterX": 0.0,
+    "ScaleX": 13100.0,
+    "Regions": [{ "Name": "default" }]
+  },
+  {
+    "DisplayName": "Reverence",
+    "MapName": "reverence_wp",
+    "CenterY": 0.0,
+    "ScaleY": 8125.0,
+    "CenterX": 0.0,
+    "ScaleX": 8125.0
+  },
+  {
+    "DisplayName": "Scorched Earth",
+    "MapName": "scorchedearth_wp",
+    "CenterY": 50.0,
+    "ScaleY": 7874.0,
+    "CenterX": 50.0,
+    "ScaleX": 7874.0,
+    "Regions": [{ "Name": "default" }]
+  },
+  {
+    "DisplayName": "Survive The Night",
+    "MapName": "asurvivethenight",
+    "CenterY": 4424.0,
+    "ScaleY": 4033.0,
+    "CenterX": -8766.0,
+    "ScaleX": 4033.0,
+    "Regions": [{ "Name": "default" }]
+  },
+  {
+    "DisplayName": "Svartalfheim",
+    "MapName": "Svartalfheim_wp",
+    "CenterY": 0.0,
+    "ScaleY": 4065.0,
+    "CenterX": 0.0,
+    "ScaleX": 4065.0,
+    "Regions": [{ "Name": "default" }]
+  },
+  {
+    "DisplayName": "Temptress Lagoon",
+    "MapName": "temptress_wp",
+    "CenterY": 0.0,
+    "ScaleY": 8150.0,
+    "CenterX": 0.0,
+    "ScaleX": 8150.0
+  },
+  {
+    "DisplayName": "The Center",
+    "MapName": "thecenter_wp",
+    "CenterY": 181487.0,
+    "ScaleY": 10374.04,
+    "CenterX": -5662.0,
+    "ScaleX": 10374.04,
+    "Regions": [{ "Name": "default" }]
+  },
+  {
+    "DisplayName": "The Island",
+    "MapName": "theisland_wp",
+    "CenterY": 0.0,
+    "ScaleY": 6858.0,
+    "CenterX": 0.0,
+    "ScaleX": 6858.0,
+    "Regions": [{ "Name": "default" }]
+  },
+  {
+    "DisplayName": "Valguero",
+    "MapName": "valguero_wp",
+    "CenterY": 0.0,
+    "ScaleY": 8160.0,
+    "CenterX": 0.0,
+    "ScaleX": 8160.0,
+    "Regions": [{ "Name": "default" }]
+  }
+]

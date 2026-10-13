@@ -27,10 +27,15 @@ namespace AsaSavegameToolkit.Plumbing.Readers
 
         public List<GameObjectRecord> Read(string saveDirectory, CancellationToken cancellationToken = default)
         {
-            var tribeFiles = Directory.EnumerateFiles(saveDirectory, "*.arkprofile");
+            if (!Directory.Exists(saveDirectory))
+            {
+                return [];
+            }
+
+            var profileFiles = Directory.EnumerateFiles(saveDirectory, "*.arkprofile");
 
             ConcurrentBag<GameObjectRecord> profileBag = new();
-            Parallel.ForEach(tribeFiles, new ParallelOptions { MaxDegreeOfParallelism = _settings.MaxCores }, filePath =>
+            Parallel.ForEach(profileFiles, new ParallelOptions { MaxDegreeOfParallelism = _settings.MaxCores }, filePath =>
             {
                 cancellationToken.ThrowIfCancellationRequested();
 

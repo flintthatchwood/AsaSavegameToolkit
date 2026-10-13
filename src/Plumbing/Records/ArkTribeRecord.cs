@@ -1,7 +1,6 @@
-﻿using AsaSavegameToolkit.Plumbing.Properties;
+using AsaSavegameToolkit.Plumbing.Properties;
 using AsaSavegameToolkit.Plumbing.Readers;
 using Microsoft.Extensions.Logging.Abstractions;
-using Microsoft.VisualBasic.FileIO;
 using System;
 using System.Collections.Generic;
 using System.Linq;
@@ -85,7 +84,7 @@ namespace AsaSavegameToolkit.Plumbing.Records
             var properties = Property.ReadList(archive);
             ObjectTypeFlags objectType = ObjectTypeFlags.Actor;
 
-            return new GameObjectRecord(uuid, new Primitives.FName(0, 0, fileType), names, properties, 0, objectType, default);
+            return new GameObjectRecord(uuid, new Primitives.FName(0, 0, fileType), names ?? [], properties, 0, objectType, default);
         }
 
         public static GameObjectRecord ReadFromFile(string filePath, Guid uuid)

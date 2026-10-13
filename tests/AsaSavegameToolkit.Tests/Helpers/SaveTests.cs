@@ -90,7 +90,9 @@ public class SaveTests
             }
         }
         
-        var archive = new AsaArchive(TestContext.GetLogger(), bytes, $"{saveFilePath}/{tableName}/{key}");
+        var stream = new MemoryStream(bytes);
+
+        var archive = new AsaArchive(TestContext.GetLogger(), stream, $"{saveFilePath}/{tableName}/{key}");
 
         if (key != "SaveHeader")
         {
