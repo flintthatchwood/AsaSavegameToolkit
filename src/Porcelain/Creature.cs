@@ -178,7 +178,6 @@ public class Creature
         var mutationsMale = properties.Get<int>("RandomMutationsMale");
         var mutationsFemale = properties.Get<int>("RandomMutationsFemale");
         var baseLevel = record.GetBaseLevel();
-        var extraCharacterLevel = properties.Get<int>("ExtraCharacterLevel");
         var colorRegions = new byte?[6];
         for (var region = 0; region < colorRegions.Length; region++)
         {
@@ -197,8 +196,8 @@ public class Creature
             IsTamed = record.IsTamed(),
             IsFemale = properties.Get<bool>("bIsFemale"),
             BaseLevel = baseLevel,
-            ExtraLevel = extraCharacterLevel,
-            TotalLevel = baseLevel is int b ? b + extraCharacterLevel : null,
+            ExtraLevel = 0,
+            TotalLevel = baseLevel,
             MutationsMale = mutationsMale,
             MutationsFemale = mutationsFemale,
             TotalMutations = mutationsMale + mutationsFemale,
@@ -264,6 +263,10 @@ public class Creature
 
     internal void IngestStatusRecord(GameObjectRecord statusComponent)
     {
+        // a cryopodded creature's status record only arrives here, so its levels are read here too
+        BaseLevel = statusComponent.Properties.TryGet<int>("BaseCharacterLevel", out var baseLevel) ? baseLevel : 1;
+        ExtraLevel = statusComponent.Properties.Get<ushort>("ExtraCharacterLevel");
+        TotalLevel = BaseLevel + ExtraLevel;
         WildLevels = GetStatValues<byte>(statusComponent, "NumberOfLevelUpPointsApplied", 12);
         TamedLevelsApplied = GetStatValues<byte>(statusComponent, "NumberOfLevelUpPointsAppliedTamed", 12);
         MutationLevelsApplied =GetStatValues<byte>(statusComponent, "NumberOfMutationsAppliedTamed", 12);
