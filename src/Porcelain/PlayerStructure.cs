@@ -39,7 +39,7 @@ public class PlayerStructure : Structure
         structure.PlacerId = properties.Get<int>("OriginalPlacerID");
         structure.PlacedTime = properties.Get<string>("OriginalPlacedTimeStamp") ?? "";
         structure.CreationGameTime = properties.Get<double>("OriginalCreationTime");
-        structure.LastAllyInRangeGameTime = properties.Get<double>("LastAllyInRangeTimeSerialized");
+        structure.LastAllyInRangeGameTime = properties.Get<double>("LastInAllyRangeTimeSerialized");
         structure.HasFuel = properties.Get<bool>("bHasFuel");
         structure.LastToggleActivated = properties.Get<bool>("bLastToggleActivated");
         structure.IsPinLocked = properties.Get<bool>("bIsPinLocked");
