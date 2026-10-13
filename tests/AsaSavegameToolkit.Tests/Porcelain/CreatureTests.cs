@@ -148,6 +148,33 @@ public class CreatureTests : SaveTests
     }
 
     [TestMethod]
+    public void CanWrapCreature_TotalLevelIncludesLevelsGainedAfterTaming()
+    {
+        // both levels live on the status component; the extra levels are a UInt16Property
+        var rex = Record(["Rex_Character_BP_C_1", "PersistentLevel"], BoolProp("bServerInitializedDino", true));
+        rex.Components["DinoCharacterStatus_BP_Rex_C1"] = Record(["DinoCharacterStatus_BP_Rex_C1", "Rex_Character_BP_C_1", "PersistentLevel"],
+            IntProp("BaseCharacterLevel", 120), UInt16Prop("ExtraCharacterLevel", 45));
+
+        var creature = Creature.Create(rex, transform: null);
+
+        Assert.AreEqual(120, creature.BaseLevel);
+        Assert.AreEqual(45, creature.ExtraLevel);
+        Assert.AreEqual(165, creature.TotalLevel);
+        Assert.AreEqual(165, rex.GetFullLevel());
+    }
+
+    [TestMethod]
+    public void AsaSaveGame_TamedCreaturesHaveTheirExtraLevels()
+    {
+        var saveFile = Path.Combine(TestSettings.AssetsDirectory, "version_14/TheIsland_WP.ark");
+        var saveGame = AsaSaveGame.ReadFrom(saveFile, TestContext.GetLogger(), cancellationToken: TestContext.CancellationToken);
+
+        Assert.IsTrue(saveGame.TamedCreatures.Values.Any(c => c.ExtraLevel > 0));
+        Assert.IsTrue(saveGame.CryopoddedCreatures.Values.Any(c => c.ExtraLevel > 0));
+        Assert.IsTrue(saveGame.CryopoddedCreatures.Values.Any(c => c.BaseLevel > 1));
+    }
+
+    [TestMethod]
     public void CreatureProperties_Version13_DoNotThrow()
     {
         var saveFile = Path.Combine(TestSettings.AssetsDirectory, "version_13/TheIsland_WP.ark");
@@ -298,6 +325,21 @@ public class CreatureTests : SaveTests
     }
 
     [TestMethod]
+    public void CreaturesFromCryopod_ReadsTheLevelsFromTheStatus()
+    {
+        var rex = Record(["Rex_Character_BP_C_1", "PersistentLevel"], BoolProp("bServerInitializedDino", true));
+        var rexStatus = Record(["DinoCharacterStatus_BP_Rex_C1", "Rex_Character_BP_C_1", "PersistentLevel"],
+            IntProp("BaseCharacterLevel", 120), UInt16Prop("ExtraCharacterLevel", 45));
+
+        var creatures = AsaSaveGame.CreaturesFromCryopod(Pod(), [[rex, rexStatus]], NullLogger.Instance);
+
+        Assert.HasCount(1, creatures);
+        Assert.AreEqual(120, creatures[0].BaseLevel);
+        Assert.AreEqual(45, creatures[0].ExtraLevel);
+        Assert.AreEqual(165, creatures[0].TotalLevel);
+    }
+
+    [TestMethod]
     public void CreaturesFromCryopod_WearsEveryItemAfterTheCreature()
     {
         var rex = Record(["Rex_Character_BP_C_1", "PersistentLevel"], BoolProp("bServerInitializedDino", true));
@@ -336,4 +378,8 @@ public class CreatureTests : SaveTests
     private static BoolProperty BoolProp(string name, bool value) => new() { Tag = Tag(name, "BoolProperty"), Value = value };
 
     private static ByteProperty ByteProp(string name, byte value) => new() { Tag = Tag(name, "ByteProperty"), Value = value };
+
+    private static IntProperty IntProp(string name, int value) => new() { Tag = Tag(name, "IntProperty"), Value = value };
+
+    private static UInt16Property UInt16Prop(string name, ushort value) => new() { Tag = Tag(name, "UInt16Property"), Value = value };
 }

@@ -205,7 +205,7 @@ public static class GameObjectExtensions
             baseLevel = 1;
         }
 
-        int extraLevel = statusComponent.Properties.Get<short>("ExtraCharacterLevel");
+        int extraLevel = statusComponent.Properties.Get<ushort>("ExtraCharacterLevel");
 
         return baseLevel + extraLevel;
     }
