@@ -27,6 +27,7 @@ public class SoftObjectProperty : Property<string[]>
     /// Reads just the FSoftObjectPath value from the archive (for array elements, map values, etc.).
     /// Use this when reading property values without tags, such as ArrayProperty&lt;SoftObjectProperty&gt; elements.
     /// Format: FName (asset path) + FString (sub-path, typically empty in ARK saves).
+    /// A name whose index is missing from the save's name table reads as an empty string.
     /// </summary>
     public static string[] ReadValue(AsaArchive archive)
     {
@@ -40,8 +41,8 @@ public class SoftObjectProperty : Property<string[]>
             }
 
             archive.Position -= 4; // Rewind to read the FName properly
-            var name = archive.ReadFName().ToString();
-            names.Add(name);
+            var name = archive.ReadFNameOrUnresolved();
+            names.Add(string.IsNullOrEmpty(name.Name) ? string.Empty : name.ToString());
         }
         return [.. names];
     }
