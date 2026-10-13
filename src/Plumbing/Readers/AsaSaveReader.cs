@@ -151,20 +151,27 @@ public class AsaSaveReader : IDisposable
                 cancellationToken.ThrowIfCancellationRequested();
                 var (objectId, objectBytes) = gameRow;
 
+                GameObjectRecord gameRecord;
                 try
                 {
-                    var gameRecord = ParseGameRecord(objectId, objectBytes, saveHeader);
-                    parsedGameRecords.AddOrUpdate(objectId, gameRecord, (_, _) =>
-                    {
-                        _logger.LogWarning("Replacing game object with guid {Guid}. This may indicate duplicate entries in the database or a collision. Returning the new object.", objectId);
-                        return gameRecord;
-                    });
+                    gameRecord = ParseGameRecord(objectId, objectBytes, saveHeader);
                 }
                 catch (Exception ex)
                 {
                     _logger.LogError(ex, "Failed to parse game object {ObjectId}", objectId);
                     throw new AsaDataException($"Failed to parse game object {objectId} in {_saveFile}", ex);
                 }
+
+                if (!_settings.RecordFilter(gameRecord))
+                {
+                    return;
+                }
+
+                parsedGameRecords.AddOrUpdate(objectId, gameRecord, (_, _) =>
+                {
+                    _logger.LogWarning("Replacing game object with guid {Guid}. This may indicate duplicate entries in the database or a collision. Returning the new object.", objectId);
+                    return gameRecord;
+                });
             });
 
             // Release all raw byte arrays now that parsing is complete.

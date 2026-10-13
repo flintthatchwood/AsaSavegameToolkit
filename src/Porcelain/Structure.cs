@@ -23,7 +23,7 @@ public class Structure
             ClassName = r.GetClassName(),
             StructureName = r.Properties.Get<string>("StructureName"),
             TribeName = r.Properties.Get<string>("TribeName"),
-            IsPlayerBuilt = r.Properties.Get<bool>("bHasResetDecayTime") || GameObjectExtensions.NonCreatureDisambiguatedClasses.Contains(r.GetClassName()),
+            IsPlayerBuilt = r.Properties.Get<bool>("bHasResetDecayTime") || GameObjectExtensions.NonCreatureDisambiguatedClasses.Contains(r.GetShortClassName()),
             Location = transform?.Location,
             Rotation = transform?.Rotation,
             Record = r

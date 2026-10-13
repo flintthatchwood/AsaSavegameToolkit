@@ -32,7 +32,7 @@ using Microsoft.Extensions.Logging.Abstractions;
 var savePath = @"D:\repos\AsaSavegameToolkit\tests\assets\version_14\Aberration_WP.ark";
 var save = AsaSaveGame.ReadFrom(savePath, logger: NullLogger.Instance);
 
-Console.WriteLine($"Players: {save.Players.Count}, Tamed Creatures: {save.TamedCreatures.Count}, Wild Creatures: {save.TamedCreatures.Count}, Structures: {save.Structures.Count}");
+Console.WriteLine($"Players: {save.Players.Count}, Tamed Creatures: {save.TamedCreatures.Count}, Wild Creatures: {save.WildCreatures.Count}, Structures: {save.Structures.Count}");
 
 // Example: list player names
 foreach (var player in save.Players)
@@ -65,7 +65,7 @@ Key types:
 
 ## Supported save formats & versions
 
-- **Save version 14+** EU5.5
+- **Save version 14+** UE5.5
 - **Save version 13** Earlier versions may work but aren’t officially covered.
 
 ---

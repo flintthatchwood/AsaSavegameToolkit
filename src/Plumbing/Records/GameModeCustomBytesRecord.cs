@@ -28,14 +28,14 @@ public class GameModeCustomBytesRecord
     ///   [tribe header index at tribeHeaderOffset + 12]
     ///     for each tribe (16 bytes): UInt32 TribeId, Int32 Unknown, Int32 Offset, Int32 Size
     ///   [profile section header immediately after tribe entries]
-    ///     [4] profileHeaderRelOffset  — relative to (this field's start + 4)
+    ///     [4] profileHeaderRelOffset  — relative to the end of this 8-byte header
     ///     [4] profileCount
     ///   [profile data blobs starting at profileSectionHeader + 8]
-    ///   [profile header index at profileSectionHeader + 4 + profileHeaderRelOffset]
+    ///   [profile header index at profileSectionHeader + 8 + profileHeaderRelOffset]
     ///     for each profile (16 bytes): Int64 EosId, Int32 Offset, Int32 Size
     ///
-    /// Each tribe/profile blob uses the old archive-version-7 format
-    /// (not the ASA GameObjectRecord format) — raw bytes are stored for deferred parsing.
+    /// Each tribe/profile blob uses the old archive format (not the ASA GameObjectRecord format) — raw bytes are
+    /// stored for deferred parsing. Most are archive version 7, but older worlds also have 5 and 6.
     /// </summary>
     public static GameModeCustomBytesRecord Read(Readers.AsaArchive archive)
     {
@@ -72,19 +72,18 @@ public class GameModeCustomBytesRecord
 
         // --- Profile section header (immediately after tribe entries) ---
         var profileHeaderOffset  = archive.ReadInt32();
-        // The profile header offset is relative to the end of this field
-        var profileHeaderStart = archive.Position;
-        var profileHeaderPosition  = profileHeaderStart + profileHeaderOffset;
-
         var profileCount         = archive.ReadInt32();
+
+        // Profile blob data starts right after the 8-byte profile section header.
+        // Like the tribe header offset, the profile header offset is relative to the start of the data.
+        var profileDataStart      = archive.Position;
+        var profileHeaderPosition = profileDataStart + profileHeaderOffset;
+
         // the minimim size of the profile header is profileCount * 16, so we can do a quick check to avoid seeking to an invalid position later
         if (profileCount * 16 > archive.Length - profileHeaderPosition)
         {
             throw new AsaDataException($"Profile count {profileCount} is too large for the remaining data length {archive.Length - profileHeaderPosition}.");
         }
-
-        // Profile blob data starts right after the 8-byte profile section header
-        var profileDataStart = archive.Position;
 
         archive.Position = profileHeaderPosition;
         var profileHeaders = new List<ProfileHeaderEntry>(profileCount);

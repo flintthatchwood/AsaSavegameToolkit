@@ -17,6 +17,9 @@ public class AsaReaderSettings
     /// </summary>
     public int MaxCores { get; set; } = Environment.ProcessorCount;
 
+    /// <summary>
+    /// ReadGameRecords skips records that don't match. Called from multiple threads.
+    /// </summary>
     public Func<GameObjectRecord, bool> RecordFilter { get; set; } = _ => true;
 
     /// <summary>
