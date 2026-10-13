@@ -218,6 +218,7 @@ public class StructProperty : Property<object>
             "LinearColor" => ReadLinearColor(archive),
             "Color" => ReadColor(archive),
             "Vector2D" => ReadVector2D(archive),
+            "Guid" => archive.ReadGuid(),
             "UniqueNetIdRepl" => ReadUniqueNetIdRepl(archive),
             "IntPoint" => ReadIntPoint(archive),
 

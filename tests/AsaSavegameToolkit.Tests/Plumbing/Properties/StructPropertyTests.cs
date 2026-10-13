@@ -104,6 +104,37 @@ public class StructPropertyTests : SaveTests
     }
 
     [TestMethod]
+    [DataRow((short)13, false)]
+    [DataRow((short)14, false)]
+    [DataRow((short)16, false)]
+    [DataRow((short)13, true)]
+    [DataRow((short)14, true)]
+    [DataRow((short)16, true)]
+    public void StructProperty_CanRead_Guid(short saveVersion, bool isArkFile)
+    {
+        // a stored profile holds Guid structs; read as a generic struct, the rest of the profile is lost
+        var guid = Guid.Parse("00112233-4455-6677-8899-aabbccddeeff");
+        var type = FPropertyTypeName.Create(new FName(-1, 0, "StructProperty"), new FName(-1, 0, "Guid"));
+        var tag = new PropertyTag { Name = new FName(-1, 0, "Id"), Type = type, Size = 16 };
+
+        using var stream = new MemoryStream();
+        using (var writer = new BinaryWriter(stream, System.Text.Encoding.UTF8, leaveOpen: true))
+        {
+            writer.Write(AsaArchive.ConvertToBytes(guid));
+            writer.Write(0x12345678);
+        }
+        stream.Position = 0;
+        using var archive = new AsaArchive(Microsoft.Extensions.Logging.Abstractions.NullLogger.Instance, stream, "synthetic")
+        {
+            SaveVersion = saveVersion,
+            IsArkFile = isArkFile
+        };
+
+        Assert.AreEqual(guid, StructProperty.ReadValue(archive, tag));
+        Assert.AreEqual(0x12345678, archive.ReadInt32());
+    }
+
+    [TestMethod]
     public void CanRead_Version14_StructProperty_Generic()
     {
         using var archive = GetArchive("version_14/TheIsland_WP.ark", "game", "ee3dbd33-48fa-448b-cee8-efbc8654699c");
