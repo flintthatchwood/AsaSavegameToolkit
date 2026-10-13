@@ -22,13 +22,7 @@ public class ObjectReference
     /// The object GUID (only set if IsPath is false).
     /// </summary>
     public Guid ObjectId { get; init; } = Guid.Empty;
-
-    /// <summary>
-    /// For a non-path reference inside a cryopod payload: the referenced object's index within the payload,
-    /// or -1 for none. Cryopods reference objects this way instead of by GUID.
-    /// </summary>
-    public int ObjectIndex { get; init; } = -1;
-
+    
     /// <summary>
     /// String representation of the reference (either the path name or GUID).
     /// </summary>
@@ -43,24 +37,71 @@ public class ObjectReference
     /// </summary>
     public static ObjectReference Read(Readers.AsaArchive archive)
     {
+        if (archive.IsArkFile)
+        {
+            return ReadFile(archive);
+        }
+        
         if(archive.IsCryopod)
         {
             return ReadCryopod(archive);
         }
 
         var referenceType = archive.ReadInt16();
-        
+
+        if (referenceType == 0)
+        {
+            // GUID reference (most common)
+            return new ObjectReference
+            {
+                IsPath = false,
+                ObjectId = archive.ReadGuid()
+            };
+        }
+
+
+        var pos = archive.Position;
+        try
+        {
+            // Path reference (FName)
+
+            var pathName = archive.ReadFName();
+            return new ObjectReference
+            {
+                IsPath = true,
+                Path = pathName
+            };
+        }
+        catch
+        {
+            archive.Position = pos;
+            var p1 = archive.ReadInt64();
+                
+            return new ObjectReference()
+            {
+                IsPath = false,
+                ObjectId = Guid.Empty
+            };
+        }
+
+    }
+
+    private static ObjectReference ReadFile(AsaArchive archive)
+    {
+        var referenceType = archive.ReadInt32();
+
         if (referenceType == 1)
         {
             // Path reference (FName)
             return new ObjectReference
             {
                 IsPath = true,
-                Path = archive.ReadFName()
+                Path = new FName(0,0, archive.ReadString())
             };
         }
         else
         {
+            archive.Position -= 4; // Rewind the int32 we just read, as the GUID is stored in the same 4 bytes + 12 more bytes
             // GUID reference (most common)
             return new ObjectReference
             {
@@ -76,24 +117,48 @@ public class ObjectReference
 
         if (referenceType == 1)
         {
-            // Path reference. Cryopod paths are always inline strings, even when the payload has a name table
-            // (e.g. item classes in a cryopodded Gacha's ResourceProduction).
+            var valStart = archive.Position;
+            var allow = archive.AllowDynamicNameTable;
+            archive.AllowDynamicNameTable = false;
+            try
+            {
+
+                var pathValue = archive.ReadFName();
+
+                // Path reference (FName)
+                return new ObjectReference
+                {
+                    IsPath = true,
+                    Path = pathValue
+                };
+            }
+            catch
+            {
+                archive.Position = valStart;
+                archive.AllowDynamicNameTable = allow;                
+                var pathValue = archive.ReadString();
+
+                // Path reference (FName)
+                return new ObjectReference
+                {
+                    IsPath = true,
+                    Path = new FName(0,0,pathValue)
+                };
+
+            }
+            archive.AllowDynamicNameTable = allow;
+        }
+        else
+        {
+            var endOfData = archive.ReadInt32();
+
             return new ObjectReference
             {
-                IsPath = true,
-                Path = new FName(int.MinValue, 0, archive.ReadString())
+                IsPath = false,
+                ObjectId = Guid.Empty
             };
-        }
 
-        // Otherwise 0 then the object's index in the payload (-1 for none), or a lone -1 for no reference. Same
-        // layout as CryopodObjectProperty; there are no GUID references in cryopods (e.g. PlacedIceBridges and
-        // BoardedCharacters arrays use 8 bytes per element).
-        return referenceType switch
-        {
-            0 => new ObjectReference { IsPath = false, ObjectIndex = archive.ReadInt32() },
-            -1 => new ObjectReference { IsPath = false },
-            _ => throw new AsaDataException($"Unknown cryopod object reference type {referenceType} at {archive.Position - 4} in {archive.FileName}"),
-        };
+        }
     }
 
     public override string ToString() => Value;

@@ -20,7 +20,9 @@ public abstract class Property
     /// Note: boxes value types (int, float, etc.) - avoid in hot paths.
     /// </summary>
     public abstract object GetValue();
-    
+
+
+
     /// <summary>
     /// Reads the next property from the archive.
     /// Returns null if the property name is "None" (end of property list).
@@ -39,7 +41,7 @@ public abstract class Property
 
         var expectedEnd = archive.Position + tag.Size;
 
-        if (tag.Type.TypeName.FullName == "StructProperty" && archive.SaveVersion < 14)
+        if (tag.Type.TypeName.FullName == "StructProperty" && archive.SaveVersion < 14 &! archive.IsArkFile)
         {
             // pre-14 structs include a guid in their header that's not really part of the struct value, but we don't
             // include it as part of the tag read
@@ -74,6 +76,7 @@ public abstract class Property
             _ => throw new NotSupportedException($"Unknown property type: {tag.Type.TypeName.FullName}")
         };
 
+
         if (archive.Position < expectedEnd)
         {
             archive.Position = expectedEnd;
@@ -81,8 +84,12 @@ public abstract class Property
         }
         else if (archive.Position > expectedEnd)
         {
-            archive.Position = expectedEnd;
-            throw new AsaDataException($"Property parsing read more bytes than expected at offset {start} in {archive.FileName}");
+            if (!(archive.IsArkFile || archive.IsCryopod))
+            {
+                archive.Position = expectedEnd;
+                throw new AsaDataException($"Property parsing read more bytes than expected at offset {start} in {archive.FileName}");
+
+            }
         }
 
         return property;

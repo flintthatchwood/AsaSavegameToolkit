@@ -16,6 +16,11 @@ public class AsaReaderSettings
     /// Maximum number of processor cores to use for parallel processing. Default is the number of logical processors on the machine.
     /// </summary>
     public int MaxCores { get; set; } = Environment.ProcessorCount;
+    public bool ReadArkTribeFiles { get; set; } = true;
+    public bool ReadArkProfileFiles { get; set; } = true;
+    public bool ReadCryoObjects { get; set; } = true;
+    public bool ReadGameObjects { get; set; } = true;
+
 
     /// <summary>
     /// ReadGameRecords skips records that don't match. Called from multiple threads.

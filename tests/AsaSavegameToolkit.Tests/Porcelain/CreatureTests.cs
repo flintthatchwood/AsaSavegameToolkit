@@ -6,9 +6,6 @@ using AsaSavegameToolkit.Plumbing.Utilities;
 using AsaSavegameToolkit.Porcelain;
 using AsaSavegameToolkit.Tests.Helpers;
 
-using Microsoft.Extensions.Logging;
-using Microsoft.Extensions.Logging.Abstractions;
-
 namespace AsaSavegameToolkit.Tests.Porcelain;
 
 [TestClass]
@@ -16,6 +13,209 @@ public class CreatureTests : SaveTests
 {
     // Yutyrannus from game object record tests - confirmed present in both versions
     private const string YutyrannusId = "fe4b48ad-4d96-de0d-98e8-9d9b75e8413a";
+    private const string RexId = "f2ad10f5-4317-3b46-36b2-afb639b20329";
+
+    [TestMethod]
+    public void CanParseCreatureData()
+    {
+        var saveFile = Path.Combine(TestSettings.AssetsDirectory, "version_14/LostColony_WP.ark");
+        //var saveFile = @"C:\Users\cyber\Downloads\LostColony_WP\LostColony_WP.ark";
+
+
+        using var reader = new AsaSaveReader(saveFile, TestContext.GetLogger());
+        var records = reader.ReadGameRecords(TestContext.CancellationToken);
+        var actorTransforms = reader.ReadActorTransforms(TestContext.CancellationToken).Transforms;
+
+        //10 wilds
+        var wildRecords = records.Where(r => r.Value.IsCreature() && !r.Value.IsTamed()).Take(10).ToList();
+        foreach( var wildRecord in wildRecords)
+        {
+            ActorTransform? wildTransform = actorTransforms.FirstOrDefault(t => t.Key == wildRecord.Value.Uuid).Value;
+            var wildCreature = Creature.Create(wildRecord.Value, wildTransform);
+            var wildStatusRef = wildRecord.Value.Properties.Get<ObjectProperty>("MyCharacterStatusComponent")?.Value?.ObjectId;
+            if (wildStatusRef != null)
+            {
+                var wildStatusRecord = records[wildStatusRef.Value];
+                wildCreature.IngestStatusRecord(wildStatusRecord);
+            }
+        }
+
+
+        //stored wilds
+        var storedWildRecords = records.Where(r => r.Value.IsCreature() && !r.Value.IsTamed() && r.Value.Properties.HasAny("IsStored")).Take(10).ToList();
+        foreach (var storedRecord in storedWildRecords)
+        {
+            Guid containerId = storedRecord.Value.Uuid;
+            if (storedRecord.Value.Properties.HasAny("IsStored"))
+            {
+                containerId = storedRecord.Value.Properties.Get<ObjectProperty>("CryoContainer").Value.ObjectId;
+            }
+
+            ActorTransform? tamedTransform = actorTransforms.FirstOrDefault(t => t.Key == containerId).Value;
+            var storedWildCreature = Creature.Create(storedRecord.Value, tamedTransform);
+            var storedStatusRef = storedRecord.Value.Properties.Get<ObjectProperty>("MyCharacterStatusComponent")?.Value?.ObjectId;
+            if (storedStatusRef != null)
+            {
+                var tamedStatusRecord = records[storedStatusRef.Value];
+                storedWildCreature.IngestStatusRecord(tamedStatusRecord);
+            }
+
+
+        }
+
+
+        //10 tames
+        var tamedRecords = records.Where(r => r.Value.IsCreature() && r.Value.IsTamed() && !r.Value.Properties.HasAny("IsStored")).Take(10).ToList();
+        foreach (var tamedRecord in tamedRecords)
+        {
+            Guid containerId = tamedRecord.Value.Uuid;
+            if (tamedRecord.Value.Properties.HasAny("IsStored"))
+            {
+                containerId = tamedRecord.Value.Properties.Get<ObjectProperty>("CryoContainer").Value.ObjectId;
+            }
+
+            ActorTransform? tamedTransform = actorTransforms.FirstOrDefault(t => t.Key == containerId).Value;
+            var tamedCreature = Creature.Create(tamedRecord.Value, tamedTransform);
+            var tamedStatusRef = tamedRecord.Value.Properties.Get<ObjectProperty>("MyCharacterStatusComponent")?.Value?.ObjectId;
+            if (tamedStatusRef != null)
+            {
+                var tamedStatusRecord = records[tamedStatusRef.Value];
+                tamedCreature.IngestStatusRecord(tamedStatusRecord);
+            }
+            var tamedInventoryRef = tamedRecord.Value.Properties.Get<ObjectProperty>("MyInventoryComponent")?.Value?.ObjectId;
+            if (tamedInventoryRef != null)
+            {
+                var tamedInventoryRecord = records[tamedInventoryRef.Value];
+                var inventoryItems = ReadInventory(TestContext.CancellationToken, records, tamedInventoryRecord);
+                var creatureInventory = Inventory.Create(inventoryItems);
+                tamedCreature.IngestInventory(creatureInventory);
+            }
+        }
+
+        var storedTamedRecords = records.Where(r => r.Value.IsCreature() && r.Value.IsTamed() && r.Value.Properties.HasAny("IsStored")).ToList();
+        foreach (var storedRecord in storedTamedRecords)
+        {
+            Guid containerId = storedRecord.Value.Uuid;
+            if (storedRecord.Value.Properties.HasAny("IsStored"))
+            {
+                containerId = storedRecord.Value.Properties.Get<ObjectProperty>("CryoContainer").Value.ObjectId;
+            }
+
+            ActorTransform? tamedTransform = actorTransforms.FirstOrDefault(t => t.Key == containerId).Value;
+            var tamedCreature = Creature.Create(storedRecord.Value, tamedTransform);
+            var tamedStatusRef = storedRecord.Value.Properties.Get<ObjectProperty>("MyCharacterStatusComponent")?.Value?.ObjectId;
+            if (tamedStatusRef != null)
+            {
+                var tamedStatusRecord = records[tamedStatusRef.Value];
+                tamedCreature.IngestStatusRecord(tamedStatusRecord);
+            }
+
+            var storedInventoryRef = storedRecord.Value.Properties.Get<ObjectProperty>("MyInventoryComponent")?.Value?.ObjectId;
+            if (storedInventoryRef != null)
+            {
+                var storedInventoryRecord = records[storedInventoryRef.Value];
+                var inventoryItems = ReadInventory(TestContext.CancellationToken, records, storedInventoryRecord);
+                var creatureInventory = Inventory.Create(inventoryItems);
+                tamedCreature.IngestInventory(creatureInventory);
+            }
+
+        }
+
+    }
+
+    private List<Item> ReadInventory(CancellationToken cancellationToken, IReadOnlyDictionary<Guid,GameObjectRecord> gameObjects, GameObjectRecord inventoryRecord)
+    {
+
+        List<Item> inventoryItems = new List<Item>();
+
+        //ItemSlots
+        var itemSlots = inventoryRecord.Properties.Get<ArrayProperty>("ItemSlots")?.Value;
+        if (itemSlots != null && itemSlots.Count > 0)
+        {
+            foreach (ObjectReference itemReference in itemSlots)
+            {
+                if (itemReference.ObjectId == Guid.Empty)
+                {
+                    continue; //skip empty slots
+                }
+                var itemRecord = gameObjects[itemReference.ObjectId];
+                var item = Item.Create(itemRecord);
+                inventoryItems.Add(item);
+            }
+        }
+
+        //InventoryItems
+        var inventorySlots = inventoryRecord.Properties.Get<ArrayProperty>("InventoryItems")?.Value;
+        if (inventorySlots != null && inventorySlots.Count > 0)
+        {
+            foreach (ObjectReference itemReference in inventorySlots)
+            {
+                if (itemReference.ObjectId == Guid.Empty)
+                {
+                    continue; //skip empty slots
+                }
+                var itemRecord = gameObjects[itemReference.ObjectId];
+                var item = Item.Create(itemRecord);
+                inventoryItems.Add(item);
+            }
+        }
+
+        //EquippedItems
+        var equippedSlots = inventoryRecord.Properties.Get<ArrayProperty>("EquippedItems")?.Value;
+        if (equippedSlots != null && equippedSlots.Count > 0)
+        {
+            foreach (ObjectReference itemReference in equippedSlots)
+            {
+                if (itemReference.ObjectId == Guid.Empty)
+                {
+                    continue; //skip empty slots
+                }
+                var itemRecord = gameObjects[itemReference.ObjectId];
+                var item = Item.Create(itemRecord);
+                inventoryItems.Add(item);
+            }
+        }
+
+        return inventoryItems; 
+    }
+
+    [TestMethod]
+    public void IsCryoRelease_DataMatched()
+    {
+
+        var cryoSaveFile = Path.Combine(TestSettings.AssetsDirectory, "version_14/LostColony_WP_Cryo.ark");
+        using var reader1 = new AsaSaveReader(cryoSaveFile, TestContext.GetLogger());
+        var records1 = reader1.ReadGameRecords(TestContext.CancellationToken);
+
+
+        var releaseSaveFile = Path.Combine(TestSettings.AssetsDirectory, "version_14/LostColony_WP_Free.ark");
+        using var reader2 = new AsaSaveReader(releaseSaveFile, TestContext.GetLogger());
+        var records2 = reader2.ReadGameRecords(TestContext.CancellationToken);
+
+        var freeCreatureRecord = records2[Guid.Parse(RexId)];
+        Assert.IsNotNull(freeCreatureRecord, "Free creature cannot be found.");
+        var freeCreature = Creature.Create(freeCreatureRecord, transform: null);
+        
+        Creature? cryoCreature = null;
+
+        foreach (var record in records1.Values)
+        {
+            var dinoId = long.Parse($"{record.Properties.Get<uint>("DinoID1")}{record.Properties.Get<uint>("DinoID2")}");
+            if(dinoId == freeCreature.DinoId)
+            {
+                cryoCreature = Creature.Create(record, transform: null);
+                break;
+            }
+        }
+        
+        Assert.IsNotNull(cryoCreature, "Cryo creature cannot be found.");
+        
+        Assert.IsTrue(cryoCreature.IsCryo, "Cryo creature should have IsCryo=true");
+        Assert.IsFalse(freeCreature.IsCryo, "Free creature should have IsCryo=false");
+        Assert.AreEqual(cryoCreature.DinoId, freeCreature.DinoId, "DinoId should match between cryo and free versions of the same creature");
+        Assert.AreEqual(cryoCreature.ClassName, freeCreature.ClassName, "ClassName should match between cryo and free versions of the same creature");       
+        Assert.AreEqual(cryoCreature.BaseLevel, freeCreature.BaseLevel, "BaseLevel should match between cryo and free versions of the same creature");
+    }
 
     [TestMethod]
     public void IsCreature_Version13_ReturnsTrue()
@@ -35,66 +235,6 @@ public class CreatureTests : SaveTests
         var record = reader.ReadGameRecord(Guid.Parse(YutyrannusId), TestContext.CancellationToken);
 
         Assert.IsTrue(record.IsCreature());
-    }
-
-    [TestMethod]
-    [DataRow("/Game/PrimalEarth/Items/Raft/Raft_BP.Raft_BP_C")]
-    [DataRow("/Game/Genesis/Dinos/TEKHoverSkiff/TekHoverSkiff_Character_BP.TekHoverSkiff_Character_BP_C")]
-    [DataRow("/Game/Water/Vessels/Galleon/GalleonShipBP.GalleonShipBP_C")]
-    [DataRow("/Game/Packs/Wasteland/Vehicles/Car/Car_Vehicle_BP.Car_Vehicle_BP_C")]
-    public void IsCreature_IsFalseForVehicles(string className)
-    {
-        var vehicle = Vehicle(className, "Vehicle_1");
-
-        Assert.IsFalse(vehicle.IsCreature());
-        Assert.IsTrue(vehicle.IsStructure());
-    }
-
-    [TestMethod]
-    public void CreaturesFromCryopod_SkipsAPickedUpCar()
-    {
-        // the car and its status component, then its parts
-        var car = Vehicle("/Game/Packs/Wasteland/Vehicles/Car/Car_Vehicle_BP.Car_Vehicle_BP_C", "Car_Vehicle_BP_C_1");
-        var carStatus = Record(["DinoCharacterStatusComponent_BP_Car_C1", "Car_Vehicle_BP_C_1", "PersistentLevel"]);
-        var part = Record(["Unknown_2"]);
-        var logger = new WarningCounter();
-
-        var creatures = AsaSaveGame.CreaturesFromCryopod(Pod(), [[car, carStatus], [part], [part]], logger);
-
-        Assert.IsEmpty(creatures);
-        Assert.AreEqual(0, logger.Warnings);
-    }
-
-    [TestMethod]
-    public void CreaturesFromCryopod_KeepsACreatureNextToAVehicle()
-    {
-        var raft = Vehicle("/Game/PrimalEarth/Items/Raft/Raft_BP.Raft_BP_C", "Raft_BP_C_1");
-        var rex = Record(["Rex_Character_BP_C_2", "PersistentLevel"], BoolProp("bServerInitializedDino", true));
-
-        var creatures = AsaSaveGame.CreaturesFromCryopod(Pod(), [[raft, rex]], NullLogger.Instance);
-
-        Assert.HasCount(1, creatures);
-    }
-
-    // vehicles have bServerInitializedDino like creatures do
-    private static GameObjectRecord Vehicle(string className, string name) =>
-        new(Guid.NewGuid(), new FName(-1, 0, className), [name], [BoolProp("bServerInitializedDino", true)], 0, ObjectTypeFlags.None, extraGuids: []);
-
-    private sealed class WarningCounter : ILogger
-    {
-        public int Warnings { get; private set; }
-
-        public IDisposable? BeginScope<TState>(TState state) where TState : notnull => null;
-
-        public bool IsEnabled(LogLevel logLevel) => true;
-
-        public void Log<TState>(LogLevel logLevel, EventId eventId, TState state, Exception? exception, Func<TState, Exception?, string> formatter)
-        {
-            if (logLevel >= LogLevel.Warning)
-            {
-                Warnings++;
-            }
-        }
     }
 
     [TestMethod]
@@ -133,26 +273,28 @@ public class CreatureTests : SaveTests
         // Validate all accessors return without throwing
         _ = creature.Id;
         _ = creature.ClassName;
-        _ = creature.IsTamed;
         _ = creature.IsFemale;
-        _ = creature.TamedName;
-        _ = creature.TribeName;
-        _ = creature.TamerString;
         _ = creature.BaseLevel;
-        _ = creature.ExtraLevel;
         _ = creature.TotalLevel;
         _ = creature.MutationsMale;
         _ = creature.MutationsFemale;
         _ = creature.TotalMutations;
-        _ = creature.ImprintQuality;
-        _ = creature.ImprinterName;
         _ = creature.BabyAge;
         _ = creature.IsJuvenile;
-        _ = creature.TamedAtTime;
-        _ = creature.DinoId1;
-        _ = creature.DinoId2;
+        _ = creature.DinoId;
         _ = creature.ColorRegions;
         _ = creature.ToString();
+
+        if(creature is CreatureTamed tamed)
+        {
+            _ = tamed.TamedName;
+            _ = tamed.TribeName;
+            _ = tamed.TamerString;
+            _ = tamed.ImprintQuality;
+            _ = tamed.ImprinterName;
+            _ = tamed.TamedAtGameTime;
+        }
+
     }
 
     [TestMethod]
@@ -166,140 +308,44 @@ public class CreatureTests : SaveTests
 
         _ = creature.Id;
         _ = creature.ClassName;
-        _ = creature.IsTamed;
         _ = creature.IsFemale;
-        _ = creature.TamedName;
-        _ = creature.TribeName;
-        _ = creature.TamerString;
         _ = creature.BaseLevel;
-        _ = creature.ExtraLevel;
         _ = creature.TotalLevel;
         _ = creature.MutationsMale;
         _ = creature.MutationsFemale;
         _ = creature.TotalMutations;
-        _ = creature.ImprintQuality;
-        _ = creature.ImprinterName;
         _ = creature.BabyAge;
         _ = creature.IsJuvenile;
-        _ = creature.TamedAtTime;
-        _ = creature.DinoId1;
-        _ = creature.DinoId2;
+        _ = creature.DinoId;
         _ = creature.ColorRegions;
         _ = creature.ToString();
+
+        if(creature is CreatureTamed tamed)
+        {
+            _ = tamed.TamedName;
+            _ = tamed.TribeName;
+            _ = tamed.TamerString;
+            _ = tamed.ImprintQuality;
+            _ = tamed.ImprinterName;
+            _ = tamed.TamedAtGameTime;
+        }
     }
 
     [TestMethod]
     public void AsaSaveGame_IncludesCryoCreatures()
     {
-        var saveFile = Path.Combine(TestSettings.AssetsDirectory, "version_13/TheIsland_WP.ark");
+        var saveFile = Path.Combine(TestSettings.AssetsDirectory, "version_14/LostColony_WP.ark");
         var saveGame = AsaSaveGame.ReadFrom(saveFile, TestContext.GetLogger(), cancellationToken: TestContext.CancellationToken);
 
-        var cryoCreatures = saveGame.CryopoddedCreatures;
-        TestContext.WriteLine($"Found {cryoCreatures.Count} cryo creatures in AsaSaveGame.CryopoddedCreatures");
+        var cryoCreatures = saveGame.TamedCreatures.Values.Where(c=>c.IsCryo == true).ToList();
+        TestContext.WriteLine($"Found {cryoCreatures.Count} cryo creatures in AsaSaveGame.");
 
-        Assert.IsNotEmpty(cryoCreatures, "Expected extracted cryo creatures to be surfaced in AsaSaveGame.CryopoddedCreatures");
+        Assert.IsNotEmpty(cryoCreatures, "Expected extracted cryo creatures to be surfaced in AsaSaveGame.");
 
-        foreach (var c in cryoCreatures.Values)
+        foreach (var c in cryoCreatures.OfType<CreatureTamed>())
         {
-            TestContext.WriteLine($"  {c.ClassName} '{c.TamedName}' lv={c.TotalLevel} tribe={c.TribeName} isInCryo={c.IsInCryo}");
-            Assert.IsTrue(c.IsInCryo, $"Cryo creature {c.Id} should have IsInCryo=true");
+            TestContext.WriteLine($"  {c.ClassName} '{c.TamedName}' lv={c.TotalLevel} tribe={c.TribeName} isInCryo={c.IsCryo}");
+            Assert.IsTrue(c.IsCryo, $"Cryo creature {c.Id} should have IsInCryo=true");
         }
     }
-
-    [TestMethod]
-    public void AsaSaveGame_KeepsCryopoddedCopiesOfTheSameCreature()
-    {
-        // Aberration_14 has two cryopods holding the same creature
-        var saveFile = Path.Combine(TestSettings.AssetsDirectory, "version_14/Aberration_14.ark");
-        var saveGame = AsaSaveGame.ReadFrom(saveFile, TestContext.GetLogger(), cancellationToken: TestContext.CancellationToken);
-
-        Assert.HasCount(65, saveGame.CryopoddedCreatures);
-        Assert.AreEqual(64, saveGame.CryopoddedCreatures.Values.Select(c => c.Id).Distinct().Count());
-
-        // keyed by the pod holding each copy
-        var records = ReadGameRecords(saveFile);
-        Assert.IsTrue(saveGame.CryopoddedCreatures.Keys.All(id => records.TryGetValue(id, out var pod) && pod.HasCryoCreature()));
-    }
-
-    [TestMethod]
-    public void AsaSaveGame_CryopoddedCreaturesWearTheirSaddles()
-    {
-        var saveFile = Path.Combine(TestSettings.AssetsDirectory, "version_14/TheIsland_14.ark");
-        var saveGame = AsaSaveGame.ReadFrom(saveFile, TestContext.GetLogger(), cancellationToken: TestContext.CancellationToken);
-
-        var saddled = saveGame.CryopoddedCreatures.Values.Count(c => c.Inventory?.Items.Values.Any(i => i.ClassName.Contains("Saddle")) == true);
-        Assert.AreEqual(35, saddled);
-
-        // each creature wears exactly what its own pod holds after the creature's data (saddle, costume, hat)
-        var records = ReadGameRecords(saveFile);
-        using var cryoReader = new CryopodReader(TestContext.GetLogger(), null);
-        foreach (var (podId, creature) in saveGame.CryopoddedCreatures)
-        {
-            var podItems = cryoReader.ReadCryopodData(records[podId]).Skip(1).SelectMany(set => set).Select(Describe).Order().ToList();
-            var worn = creature.Inventory?.Items.Values.Select(i => Describe(i.Record!)).Order().ToList() ?? [];
-            CollectionAssert.AreEqual(podItems, worn, $"pod {podId}");
-        }
-    }
-
-    [TestMethod]
-    [DataRow("creature, creature status", DisplayName = "creature and its status")]
-    [DataRow("creature, player, creature status, player status", DisplayName = "a Carcha holding a player")]
-    [DataRow("creature, player, player status, creature status", DisplayName = "statuses the other way round")]
-    public void CreaturesFromCryopod_UsesTheCreaturesOwnStatus(string order)
-    {
-        var records = new Dictionary<string, GameObjectRecord>
-        {
-            ["creature"] = Record(["Carcha_Character_BP_C_1", "PersistentLevel"], BoolProp("bServerInitializedDino", true)),
-            ["player"] = Record(["PlayerPawnTest_Male_C_2", "PersistentLevel"]),
-            ["creature status"] = Record(["DinoCharacterStatus_BP_Carcha_C1", "Carcha_Character_BP_C_1", "PersistentLevel"], ByteProp("NumberOfLevelUpPointsApplied", 7)),
-            ["player status"] = Record(["PlayerCharacterStatus", "PlayerPawnTest_Male_C_2", "PersistentLevel"], ByteProp("NumberOfLevelUpPointsApplied", 1)),
-        };
-        GameObjectRecord[] set = [.. order.Split(", ").Select(name => records[name])];
-
-        var creatures = AsaSaveGame.CreaturesFromCryopod(Pod(), [set], NullLogger.Instance);
-
-        Assert.HasCount(1, creatures);
-        Assert.AreEqual((byte)7, creatures[0].WildLevels[0]);
-        Assert.IsNull(creatures[0].Inventory, "no saddle made from the player's status component");
-    }
-
-    [TestMethod]
-    public void CreaturesFromCryopod_WearsEveryItemAfterTheCreature()
-    {
-        var rex = Record(["Rex_Character_BP_C_1", "PersistentLevel"], BoolProp("bServerInitializedDino", true));
-        var rexStatus = Record(["DinoCharacterStatus_BP_Rex_C1", "Rex_Character_BP_C_1", "PersistentLevel"]);
-        var costume = Record(["PrimalItemCostume_C_2"]);
-        var saddle = Record(["PrimalItemArmor_RexSaddle_C_3"]);
-
-        var creatures = AsaSaveGame.CreaturesFromCryopod(Pod(), [[rex, rexStatus], [costume], [saddle]], NullLogger.Instance);
-
-        Assert.HasCount(1, creatures);
-        CollectionAssert.AreEquivalent(new[] { costume, saddle }, creatures[0].Inventory!.Items.Values.Select(i => i.Record).ToArray());
-    }
-
-    private IReadOnlyDictionary<Guid, GameObjectRecord> ReadGameRecords(string saveFile)
-    {
-        using var reader = new AsaSaveReader(saveFile, TestContext.GetLogger());
-        reader.ReadSaveHeader(TestContext.CancellationToken);
-        return reader.ReadGameRecords(TestContext.CancellationToken);
-    }
-
-    // item records read from a cryopod are all class "Unknown", so compare them by their properties
-    private static string Describe(GameObjectRecord item) =>
-        string.Join(", ", item.Properties.Select(p => $"{p.Tag.Name.FullName}[{p.Tag.ArrayIndex}]={p.GetValue()}"));
-
-    private static GameObjectRecord Pod() => Record(["PrimalItem_WeaponEmptyCryopod_C_1"]);
-
-    private static GameObjectRecord Record(string[] names, params Property[] properties) =>
-        new(Guid.NewGuid(), new FName(-1, 0, "/Game/Test/Test.Test_C"), names, [.. properties], 0, ObjectTypeFlags.None, extraGuids: []);
-
-    private static PropertyTag Tag(string name, string type) => new()
-    {
-        Name = new FName(-1, 0, name),
-        Type = FPropertyTypeName.Create(new FName(-1, 0, type)),
-    };
-
-    private static BoolProperty BoolProp(string name, bool value) => new() { Tag = Tag(name, "BoolProperty"), Value = value };
-
-    private static ByteProperty ByteProp(string name, byte value) => new() { Tag = Tag(name, "ByteProperty"), Value = value };
 }

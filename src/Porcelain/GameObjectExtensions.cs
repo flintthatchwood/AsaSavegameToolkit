@@ -12,20 +12,11 @@ namespace AsaSavegameToolkit.Porcelain;
 public static class GameObjectExtensions
 {
     /// <summary>
-    /// Gets the class name (e.g., "/Game/PrimalEarth/Dinos/Yutyrannus/Yutyrannus_Character_BP.Yutyrannus_Character_BP_C").
+    /// Gets the short class name (e.g., "Yutyrannus_Character_BP_C").
     /// </summary>
     public static string GetClassName(this GameObjectRecord record)
     {
         return record.ClassName.FullName;
-    }
-
-    /// <summary>
-    /// Gets the class name without its path (e.g., "Yutyrannus_Character_BP_C").
-    /// </summary>
-    public static string GetShortClassName(this GameObjectRecord record)
-    {
-        var className = record.ClassName.FullName;
-        return className[(className.LastIndexOf('.') + 1)..];
     }
 
     /// <summary>
@@ -46,32 +37,36 @@ public static class GameObjectExtensions
         "DingyRaft_BP_C",
         "LongshipRaft_BP_C",
         "SRaft_BP_C",
-        "CherufeNest_C",
-        "SloopShipBP_C",
-        "BrigShipBP_C",
-        "GalleonShipBP_C",
-        "TriremeShipBP_C",
-        "Car_Vehicle_BP_C"
+        "CherufeNest_C"
     ];
 
     public static bool IsStructure(this GameObjectRecord gameObject)
     {
         var className = GetClassName(gameObject);
-        var shortClassName = gameObject.GetShortClassName();
-        return  shortClassName != "Structure_LoadoutDummy_Hotbar_C"
+        return className != "Structure_LoadoutDummy_Hotbar_C"
                 //&& !gameObject.IsInCryo
                 && (
                     gameObject.Properties.HasAny("OwnerName")
                     || gameObject.Properties.HasAny("bHasResetDecayTime")
-                    || NonCreatureDisambiguatedClasses.Contains(shortClassName)
+                    || NonCreatureDisambiguatedClasses.Contains(className)
                 )
                 && !className.StartsWith("DeathItemCache_");
+    }
+
+    public static bool IsTribe(this GameObjectRecord gameObject)
+    {
+        return gameObject.ClassName == "/Script/ShooterGame.PrimalTribeData";
+    }
+
+    public static bool IsProfile(this GameObjectRecord gameObject)
+    {
+        return gameObject.Properties.HasAny("MyData");
     }
 
     public static bool IsCreature(this GameObjectRecord gameObject)
     {
         return gameObject.Properties.HasAny("bServerInitializedDino")
-            && !NonCreatureDisambiguatedClasses.Contains(gameObject.GetShortClassName());
+            && !NonCreatureDisambiguatedClasses.Contains(gameObject.ClassName.FullName);
     }
 
     public static bool IsDroppedItem(this GameObjectRecord gameObject)
@@ -84,14 +79,19 @@ public static class GameObjectExtensions
         return gameObject.Properties.HasAny("OwnerInventory");
     }
 
+    public static bool IsItem(this GameObjectRecord gameObject)
+    {
+        return gameObject.Properties.HasAny("ItemID");
+    }
+
     public static bool IsInventory(this GameObjectRecord gameObject)
     {
         return gameObject.Properties.HasAny("bInitializedMe");
     }
 
-    public static bool IsPlayer(this GameObjectRecord gameObject)
+    public static bool IsPlayerComponent(this GameObjectRecord gameObject)
     {
-        return gameObject.Properties.HasAny("LinkedPlayerDataID");
+        return gameObject.Properties.HasAny("LinkedPlayerDataID") || gameObject.Properties.HasAny("PlayerDataID");
     }
 
     public static bool IsStatusComponent(this GameObjectRecord gameObject)
@@ -191,14 +191,35 @@ public static class GameObjectExtensions
             return 1;
         }
 
+        /*
         if(!statusComponent.Properties.TryGet<int>("BaseCharacterLevel", out var baseLevel))
         {
-            baseLevel = 1;
+            baseLevel = 0;
         }
+        */
 
-        int extraLevel = statusComponent.Properties.Get<short>("ExtraCharacterLevel");
+        int wildLevels = GetStatValues<byte>(statusComponent, "NumberOfLevelUpPointsApplied", 12).Sum(x=>x.GetValueOrDefault(0));
+        int tamedLevels = GetStatValues<byte>(statusComponent, "NumberOfLevelUpPointsAppliedTamed", 12).Sum(x=>x.GetValueOrDefault(0));
+        int tamedMutations = GetStatValues<byte>(statusComponent, "NumberOfMutationsAppliedTamed", 12).Sum(x => x.GetValueOrDefault(0));
+        
+        var totalLevel = wildLevels + tamedLevels + tamedMutations + 1;
 
-        return baseLevel + extraLevel;
+        return totalLevel; 
+
+
+    }
+
+    public static T?[] GetStatValues<T>(this GameObjectRecord statusComponent, string propertyName, int count) where T : struct
+    {
+        var levels = new T?[count];
+        for (var i = 0; i < count; i++)
+        {
+            if (statusComponent.Properties.TryGet<T>(propertyName, i, out var level))
+            {
+                levels[i] = level;
+            }
+        }
+        return levels;
     }
 
     public static string? GetNameForCreature(this GameObjectRecord gameObject, ArkDataProvider arkData, string valueIfNotFound = "")
@@ -218,11 +239,13 @@ public static class GameObjectExtensions
 
     public static long GetDinoId(this GameObjectRecord gameObject)
     {
-        return CreateDinoId(gameObject.Properties.Get<uint>("DinoID1", 0), gameObject.Properties.Get<uint>("DinoID2", 0));
+        return CreateDinoId(gameObject.Properties.Get<int>("DinoID1", 0), gameObject.Properties.Get<int>("DinoID2", 0));
     }
 
-    public static long CreateDinoId(uint id1, uint id2)
+    public static long CreateDinoId(int id1, int id2)
     {
-        return ((long)id1 << 32) | (id2 & 0xFFFFFFFFL);
+        return long.Parse($"{id1}{id2}");
+
+        //return ((long)id1 << 32) | (id2 & 0xFFFFFFFFL);
     }   
 }

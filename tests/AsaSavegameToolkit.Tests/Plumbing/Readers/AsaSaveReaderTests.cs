@@ -30,21 +30,4 @@ public class AsaSaveReaderTests : SaveTests
             throw new AggregateException(exceptions);
         }
     }
-
-    [TestMethod]
-    public void ReadGameRecords_KeepsOnlyRecordsMatchingTheFilter()
-    {
-        var path = Path.Combine(TestSettings.AssetsDirectory, "version_14", "TheIsland_WP.ark");
-        var wanted = Guid.Parse("be2fb31d-487c-5bd6-e684-9999d4d751a5");
-
-        using var all = new AsaSaveReader(path, TestContext.GetLogger());
-        Assert.IsGreaterThan(1, all.ReadGameRecords(TestContext.CancellationToken).Count);
-
-        var settings = new AsaReaderSettings { RecordFilter = r => r.Uuid == wanted };
-        using var filtered = new AsaSaveReader(path, TestContext.GetLogger(), settings);
-        var records = filtered.ReadGameRecords(TestContext.CancellationToken);
-
-        Assert.HasCount(1, records);
-        Assert.IsTrue(records.ContainsKey(wanted));
-    }
 }

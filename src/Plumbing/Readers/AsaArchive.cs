@@ -1,67 +1,59 @@
-using System.Reflection.PortableExecutable;
 
-using AsaSavegameToolkit.Plumbing.Primitives;
-
+using System.Buffers.Binary;
+using System.Text;
 using Microsoft.Extensions.Logging;
+using AsaSavegameToolkit.Plumbing.Primitives;
+using CommunityToolkit.HighPerformance.Buffers;
 
 namespace AsaSavegameToolkit.Plumbing.Readers;
 
 /// <summary>
-/// Low-level binary reader for ARK save data.
-/// Wraps a BinaryReader and provides Unreal Engine-specific read operations.
+/// Low-level binary reader for ARK save data implemented over a memory buffer.
+/// Preserves public API from the original `AsaArchive` but reads from a
+/// `ReadOnlyMemory<byte>` and uses spans/stackalloc/ArrayPool where appropriate
+/// to reduce temporary allocations.
 /// </summary>
 public class AsaArchive : IDisposable
 {
-    private readonly BinaryReader _reader;
     private readonly ILogger _logger;
+    private readonly ReadOnlyMemory<byte> _data;
     private bool _disposed;
 
-    public AsaArchive(ILogger logger, Stream stream, string fileName)
+    public AsaArchive(ILogger logger, ReadOnlyMemory<byte> data, string fileName)
     {
         _logger = logger;
-        _reader = new BinaryReader(stream);
+        _data = data;
         FileName = fileName;
+        Position = 0;
     }
-    
+
     public string FileName { get; }
-    
+
     /// <summary>
     /// Save file format version (from SaveHeader).
     /// Determines which parsing logic to use.
     /// </summary>
     public short SaveVersion { get; set; }
-    
+
     /// <summary>
     /// Name table from SaveHeader (maps int index → string name).
     /// Required to resolve FName instances.
     /// </summary>
-    public Dictionary<int, string> NameTable { get; set; } = [];
+    public Dictionary<int, string> NameTable { get; set; } = new();
+
 
     /// <summary>
-    /// Optional shared string pool for deduplicating FString reads (object instance names,
-    /// StrProperty values, etc.) across archives that parse the same save file in parallel.
-    /// Strings that share the same content will resolve to the same object reference,
-    /// reducing heap pressure for repeated values like tribe names and server names.
-    /// Set by <see cref="AsaSaveReader"/> before parsing begins.
+    /// Current position in the buffer.
     /// </summary>
-    public System.Collections.Concurrent.ConcurrentDictionary<string, string>? StringPool { get; set; }
-    
-    /// <summary>
-    /// Current position in the stream.
-    /// </summary>
-    public long Position
-    {
-        get => _reader.BaseStream.Position;
-        set => _reader.BaseStream.Position = value;
-    }
+    public long Position { get; set; }
 
     /// <summary>
-    /// Total length of the stream in bytes.
+    /// Total length of the buffer in bytes.
     /// </summary>
-    public long Length => _reader.BaseStream.Length;
+    public long Length => _data.Length;
 
     /// <summary>
-    /// Total length of the stream in bytes.
+    /// Remaining bytes available to read.
     /// </summary>
     public long RemainingLength => Length - Position;
 
@@ -73,132 +65,207 @@ public class AsaArchive : IDisposable
 
     public bool IsCryopod { get; internal set; }
 
+    public bool IsArkFile { get; internal set; }
+
+    // --- Primitive reads implemented over spans / BinaryPrimitives ---
+
+
+
+    public void WriteToFile(string fileName)
+    {
+        File.WriteAllBytes(fileName, _data.ToArray());
+    }
+
+    private ReadOnlySpan<byte> SpanAt(long offset, int count)
+    {
+        if (offset < 0 || count < 0 || offset + count > _data.Length)
+            throw new EndOfStreamException($"Attempt to read {count} bytes at offset {offset} in {FileName} (length {_data.Length}).");
+        return _data.Span.Slice((int)offset, count);
+    }
+
+    public byte[] ReadBytes(int count)
+    {
+        var span = SpanAt(Position, count);
+        Position += count;
+        return span.ToArray();
+    }
+
+    public byte ReadByte()
+    {
+        var span = SpanAt(Position, 1);
+        Position += 1;
+        return span[0];
+    }
+
+    public short ReadInt16()
+    {
+        var span = SpanAt(Position, 2);
+        Position += 2;
+        return BinaryPrimitives.ReadInt16LittleEndian(span);
+    }
+
+    public int ReadInt32()
+    {
+        var span = SpanAt(Position, 4);
+        Position += 4;
+        return BinaryPrimitives.ReadInt32LittleEndian(span);
+    }
+
+    public long ReadInt64()
+    {
+        var span = SpanAt(Position, 8);
+        Position += 8;
+        return BinaryPrimitives.ReadInt64LittleEndian(span);
+    }
+
+    public ushort ReadUInt16()
+    {
+        var span = SpanAt(Position, 2);
+        Position += 2;
+        return BinaryPrimitives.ReadUInt16LittleEndian(span);
+    }
+
+    public uint ReadUInt32()
+    {
+        var span = SpanAt(Position, 4);
+        Position += 4;
+        return BinaryPrimitives.ReadUInt32LittleEndian(span);
+    }
+
+    public ulong ReadUInt64()
+    {
+        var span = SpanAt(Position, 8);
+        Position += 8;
+        return BinaryPrimitives.ReadUInt64LittleEndian(span);
+    }
+
+    public float ReadFloat()
+    {
+        var span = SpanAt(Position, 4);
+        Position += 4;
+        return BitConverter.Int32BitsToSingle(BinaryPrimitives.ReadInt32LittleEndian(span));
+    }
+
+    public double ReadDouble()
+    {
+        var span = SpanAt(Position, 8);
+        Position += 8;
+        return BitConverter.Int64BitsToDouble(BinaryPrimitives.ReadInt64LittleEndian(span));
+    }
+
     /// <summary>
-    /// Reads a fixed number of bytes.
-    /// </summary>
-    public byte[] ReadBytes(int count) => _reader.ReadBytes(count);
-    
-    /// <summary>
-    /// Reads a byte.
-    /// </summary>
-    public byte ReadByte() => _reader.ReadByte();
-    
-    /// <summary>
-    /// Reads a 16-bit signed integer.
-    /// </summary>
-    public short ReadInt16() => _reader.ReadInt16();
-    
-    /// <summary>
-    /// Reads a 32-bit signed integer.
-    /// </summary>
-    public int ReadInt32() => _reader.ReadInt32();
-    
-    /// <summary>
-    /// Reads a 64-bit signed integer.
-    /// </summary>
-    public long ReadInt64() => _reader.ReadInt64();
-    
-    /// <summary>
-    /// Reads a 16-bit unsigned integer.
-    /// </summary>
-    public ushort ReadUInt16() => _reader.ReadUInt16();
-    
-    /// <summary>
-    /// Reads a 32-bit unsigned integer.
-    /// </summary>
-    public uint ReadUInt32() => _reader.ReadUInt32();
-    
-    /// <summary>
-    /// Reads a 64-bit unsigned integer.
-    /// </summary>
-    public ulong ReadUInt64() => _reader.ReadUInt64();
-    
-    /// <summary>
-    /// Reads a 32-bit floating point number.
-    /// </summary>
-    public float ReadFloat() => _reader.ReadSingle();
-    
-    /// <summary>
-    /// Reads a 64-bit floating point number.
-    /// </summary>
-    public double ReadDouble() => _reader.ReadDouble();
-   
-    /// <summary>
-    /// Reads a GUID (16 bytes).
-    /// ARK/Unreal stores GUIDs with specific byte reordering.
+    /// Reads a GUID (16 bytes) with ARK/Unreal byte reordering.
     /// </summary>
     public Guid ReadGuid()
     {
-        var bytes = _reader.ReadBytes(16);
-        
+        const int size = 16;
+        var bytes = SpanAt(Position, size);
+        Position += size;
         return ConvertToGuid(bytes);
     }
 
+    /// <summary>
+    /// Convert a Guid to ARK byte ordering into a fresh byte[].
+    /// (keeps signature from original but uses spans internally)
+    /// </summary>
     public static byte[] ConvertToBytes(Guid guid)
     {
-        // Byte order mapping: [0,1,2,3,6,7,4,5,11,10,9,8,15,14,13,12]
+        Span<byte> tmp = stackalloc byte[16];
+        guid.TryWriteBytes(tmp);
 
-        var bytes = guid.ToByteArray();
-        return [
-            bytes[0], bytes[1], bytes[2], bytes[3],    // First 4: as-is
-            bytes[6], bytes[7], bytes[4], bytes[5],    // Next 4: swap pairs
-            bytes[11], bytes[10], bytes[9], bytes[8],  // Next 4: reverse
-            bytes[15], bytes[14], bytes[13], bytes[12] // Last 4: reverse
-        ];
+        // Reorder according to mapping: [0,1,2,3,6,7,4,5,11,10,9,8,15,14,13,12]
+        Span<byte> outBuf = stackalloc byte[16];
+        outBuf[0] = tmp[0];
+        outBuf[1] = tmp[1];
+        outBuf[2] = tmp[2];
+        outBuf[3] = tmp[3];
+        outBuf[4] = tmp[6];
+        outBuf[5] = tmp[7];
+        outBuf[6] = tmp[4];
+        outBuf[7] = tmp[5];
+        outBuf[8] = tmp[11];
+        outBuf[9] = tmp[10];
+        outBuf[10] = tmp[9];
+        outBuf[11] = tmp[8];
+        outBuf[12] = tmp[15];
+        outBuf[13] = tmp[14];
+        outBuf[14] = tmp[13];
+        outBuf[15] = tmp[12];
+
+        return outBuf.ToArray();
     }
 
-    public static Guid ConvertToGuid(byte[] bytes)
+    /// <summary>
+    /// Convert ARK/Unreal ordered bytes to a Guid.
+    /// </summary>
+    public static Guid ConvertToGuid(ReadOnlySpan<byte> bytes)
     {
-        // Byte order mapping: [0,1,2,3,6,7,4,5,11,10,9,8,15,14,13,12]
+        if (bytes.Length < 16) throw new ArgumentException("Need 16 bytes to convert to Guid", nameof(bytes));
 
-        return new Guid([
-            bytes[0], bytes[1], bytes[2], bytes[3],    // First 4: as-is
-            bytes[6], bytes[7], bytes[4], bytes[5],    // Next 4: swap pairs
-            bytes[11], bytes[10], bytes[9], bytes[8],  // Next 4: reverse
-            bytes[15], bytes[14], bytes[13], bytes[12] // Last 4: reverse
-        ]);
+        Span<byte> reordered = stackalloc byte[16];
+        reordered[0] = bytes[0];
+        reordered[1] = bytes[1];
+        reordered[2] = bytes[2];
+        reordered[3] = bytes[3];
+        reordered[4] = bytes[6];
+        reordered[5] = bytes[7];
+        reordered[6] = bytes[4];
+        reordered[7] = bytes[5];
+        reordered[8] = bytes[11];
+        reordered[9] = bytes[10];
+        reordered[10] = bytes[9];
+        reordered[11] = bytes[8];
+        reordered[12] = bytes[15];
+        reordered[13] = bytes[14];
+        reordered[14] = bytes[13];
+        reordered[15] = bytes[12];
+
+        return new Guid(reordered);
     }
 
     /// <summary>
     /// Reads a length-prefixed string.
     /// Format: Int32 (length including null terminator) + UTF8 bytes + null terminator
+    /// Uses span-based decoding and ArrayPool for larger strings.
     /// </summary>
     public string ReadString()
     {
         var startPosition = Position;
-        var length = _reader.ReadInt32();
-        if (length == 0)
-            return string.Empty;
+        var length = ReadInt32();
+        if (length == 0) return string.Empty;
 
-        string value;
+        int byteCount;
+        Encoding encoding;
+
         if (length < 0)
         {
-            // Unicode string (UCS-2)
-            length = -length;
-            if (length > RemainingLength)
-            {
-                throw new Exception($"Attempting to read a Unicode string of length {length} (including null terminator) at position {startPosition} in {FileName}, but only {RemainingLength} bytes remain in the stream. This may indicate a corrupted save file.");
-            }
-
-            var bytes = _reader.ReadBytes(length * 2);
-            value = System.Text.Encoding.Unicode.GetString(bytes, 0, (length - 1) * 2);
+            // Unicode (UCS-2)
+            int charCount = checked(-length);
+            byteCount = charCount * 2;
+            encoding = Encoding.Unicode;
         }
         else
         {
-            // UTF-8 string
-            if (length > RemainingLength)
-            {
-                throw new Exception($"Attempting to read a UTF-8 string of length {length} at position {startPosition} in {FileName}, but only {RemainingLength} bytes remain. This may indicate a corrupted save file.");
-            }
-            var utf8Bytes = _reader.ReadBytes(length);
-            value = System.Text.Encoding.UTF8.GetString(utf8Bytes, 0, length - 1); // Exclude null terminator
+            // UTF-8
+            byteCount = length;
+            encoding = Encoding.UTF8;
         }
 
-        // Deduplicate against the shared pool when one is available.
-        // This collapses repeated FStrings (parent instance names, tribe names, server names)
-        // to a single string instance for the lifetime of the save read, without permanently
-        // interning them as string.Intern() would.
-        return StringPool != null ? StringPool.GetOrAdd(value, value) : value;
+        if (byteCount > RemainingLength)
+        {
+            throw new Exception($"Corrupted file: {FileName}. Position {startPosition} requires {byteCount} bytes, but only {RemainingLength} remain.");
+        }
+
+        // Slice the span, excluding the null terminator (assumed last 1 or 2 bytes)
+        int terminatorSize = (length < 0) ? 2 : 1;
+        int usefulByteCount = Math.Max(0, byteCount - terminatorSize);
+        var byteSpan = SpanAt(Position, usefulByteCount);
+
+        // This is the magic part: it decodes and pools in one step
+        string value = StringPool.Shared.GetOrAdd(byteSpan, encoding);
+
+        Position += byteCount;
+        return value;
     }
 
     /// <summary>
@@ -208,18 +275,15 @@ public class AsaArchive : IDisposable
     /// </summary>
     public FName ReadFName()
     {
-        if (IsCryopod && NameTable.Count == 0)
+        if ((IsCryopod || IsArkFile) && NameTable.Count == 0)
         {
-            // Property deserialization requires reading FNames, but cryopods write some of their objects with inline
-            // strings. The branch logic is simpler if we just allow for inline FNames
             var name = ReadString();
             return new FName(int.MinValue, 0, name);
         }
 
-        var nameIndex = _reader.ReadInt32();
-        int instanceNumber = _reader.ReadInt32();
+        var nameIndex = ReadInt32();
+        int instanceNumber = ReadInt32();
 
-        // Resolve the name string immediately
         if (!NameTable.TryGetValue(nameIndex, out var nameString))
         {
             if (AllowDynamicNameTable)
@@ -237,25 +301,18 @@ public class AsaArchive : IDisposable
     }
 
     /// <summary>
-    /// Reads an FPropertyTypeName (Unreal Engine 5.5+ type system).
-    /// Recursively reads the type tree: FName (type) + Int32 (parameter count) + recursive parameters.
-    /// Example: MapProperty(NameProperty, FloatProperty) reads:
-    ///   1. FName=MapProperty, InnerCount=2
-    ///   2. FName=NameProperty, InnerCount=0
-    ///   3. FName=FloatProperty, InnerCount=0
+    /// Reads an FPropertyTypeName recursively (Unreal Engine 5.5+).
     /// </summary>
     public FPropertyTypeName ReadPropertyTypeName(int depth = 0)
     {
-        // Guard here against a stack overflow caused by a misread (e.g. due to a corrupted save file)
-        if(depth > 10)
+        if (depth > 10)
         {
             throw new InvalidDataException($"Exceeded maximum recursion depth while reading FPropertyTypeName at position {Position}. This may indicate a corrupted save file.");
         }
 
         var typeName = ReadFName();
-        var parameterCount = _reader.ReadInt32();
+        var parameterCount = ReadInt32();
 
-        // The minimum size for a FPropertyTypeName is 12 bytes (fname + int32)
         if (parameterCount * 12 > RemainingLength)
         {
             throw new AsaDataException($"Invalid type parameter count read at offset {Position - 4} of {FileName}");
@@ -267,14 +324,12 @@ public class AsaArchive : IDisposable
 
         for (int i = 0; i < parameterCount; i++)
         {
-            parameters[i] = ReadPropertyTypeName(depth + 1); // Recursive call
+            parameters[i] = ReadPropertyTypeName(depth + 1);
         }
 
-        // Intern the instance: identical type signatures share a single object across
-        // all game objects in the save, keeping the FPropertyTypeName tree very small.
         return FPropertyTypeName.Create(typeName, parameters);
     }
-    
+
     public string[] ReadStringArray()
     {
         var stringCount = ReadInt32();
@@ -296,7 +351,7 @@ public class AsaArchive : IDisposable
     {
         if (!_disposed)
         {
-            _reader?.Dispose();
+            // No unmanaged resources to free for memory-backed reader.
             _disposed = true;
         }
         GC.SuppressFinalize(this);
