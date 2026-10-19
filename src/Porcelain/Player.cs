@@ -60,6 +60,18 @@ public class Player
     public List<string> HeardVoiceOvers { get; set; } = [];
     public float ExperiencePoints { get; set; }
     public int TotalEngramPoints { get; set; }
+
+    /// <summary>
+    /// Current hexagon balance, or zero when the record does not contain a balance.
+    /// </summary>
+    public int Hexagons { get; set; }
+
+    /// <summary>
+    /// Saved Genesis Part 1 best mission scores, keyed by full mission tag.
+    /// This is not the mission-completion ledger.
+    /// </summary>
+    public Dictionary<string, MissionScore> Genesis1MissionScores { get; set; } = [];
+
     public float PercentageOfHeadHairGrowth { get; set; }
     public float PercentageOfFacialHairGrowth { get; set; }
     public int TotalSkillPoints { get; set; }
@@ -122,6 +134,7 @@ public class Player
             CharacterName = record.Properties.Get<string>("PlayerName"),
             TribeId = record.Properties.Get<int>("TribeID"),
             TribeName = record.Properties.Get<string>("TribeName"),
+            Hexagons = record.Properties.Get<int>("PlayerHexagonCount"),
             PlayerDataId = record.Properties.TryGet<long>("PlayerDataID", out var value) ? value :
                            record.Properties.TryGet<ulong>("LinkedPlayerDataID", out var uval) ? (long)uval : null,
             Location = transform?.Location,
@@ -154,6 +167,7 @@ public class Player
         var numOfDeaths = myDataProperties.Get<float>("NumOfDeaths");
         var spawnDayNumber = myDataProperties.Get<int>("SpawnDayNumber");
         var spawnDayTime = myDataProperties.Get<float>("SpawnDayTime");
+        var hexagonCount = profileRecord.Properties.Get<int>("HexagonCount");
 
         string? uniqueNetId = null;
         if (myDataProperties.Get<StructProperty>("UniqueID")?.Value is FUniqueNetIdRepl uniqueNetIdProperty &&
@@ -169,6 +183,30 @@ public class Player
             foreach (FName voiceHeard in voiceOvers)
             {
                 heardVoices.Add(voiceHeard.Name);
+            }
+        }
+
+        Dictionary<string, MissionScore> genesis1MissionScores = [];
+        var missionScores = myDataProperties.Get<ArrayProperty>("LatestMissionScores")?.Value;
+        if (missionScores != null)
+        {
+            foreach (var entry in missionScores)
+            {
+                if (entry is not List<Property> mission)
+                    throw new InvalidDataException($"Mission score entry in profile {profileRecord.Uuid} is not a property list.");
+
+                if (!mission.Get<bool>("bHasValidScore"))
+                    continue;
+
+                if (!mission.TryGet<FName>("MissionTag", out var missionTag) ||
+                    string.IsNullOrEmpty(missionTag.FullName) || missionTag == FName.None)
+                    throw new InvalidDataException($"Valid mission score in profile {profileRecord.Uuid} has no mission tag.");
+
+                if (mission.Get<StructProperty>("BestScore")?.Value is not List<Property> bestScore)
+                    throw new InvalidDataException($"Valid mission score for {missionTag.FullName} in profile {profileRecord.Uuid} has no BestScore.");
+
+                genesis1MissionScores.Add(missionTag.FullName,
+                    new MissionScore(bestScore.Get<int>("IntValue"), bestScore.Get<float>("FloatValue")));
             }
         }
 
@@ -194,7 +232,7 @@ public class Player
             totalEngramPoints = persistentConfigProperties.Get<int>("PlayerState_TotalEngramPoints");
             headHairGrowth = persistentConfigProperties.Get<float>("PercentageOfHeadHairGrowth");
             facialHairGrowth = persistentConfigProperties.Get<float>("PercentageOfFacialHairGrowth");
-            totalSkillPoints = persistentConfigProperties.Get<int>("PlayerState_TotaSkillPoints");
+            totalSkillPoints = persistentConfigProperties.Get<int>("PlayerState_TotalSkillPoints");
             freeSkillPoints = persistentConfigProperties.Get<int>("PlayerState_FreeSkillPoints");
 
             for (var i = 0; i < playerStats.Length; i++)
@@ -351,6 +389,8 @@ public class Player
             SpawnDayTime = spawnDayTime,
             Stats = playerStats,
             TotalEngramPoints = totalEngramPoints,
+            Hexagons = hexagonCount,
+            Genesis1MissionScores = genesis1MissionScores,
             TotalSkillPoints = totalSkillPoints,
             UniqueNetId = uniqueNetId,
             Skills = unlockedSkills,
@@ -387,6 +427,9 @@ public class Player
     internal void IngestCharacterRecord(GameObjectRecord characterComponent)
     {
         var properties = characterComponent.Properties;
+
+        if (properties.TryGet<int>("PlayerHexagonCount", out var hexagons))
+            Hexagons = hexagons;
 
         var charName = properties.Get<string>("PlayerName");
         if (!string.IsNullOrEmpty(charName))

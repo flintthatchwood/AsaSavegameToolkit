@@ -38,6 +38,17 @@ public class CreatureTests : SaveTests
     }
 
     [TestMethod]
+    public void IsCreature_Version16_PreservesTheEarlierCreatureId()
+    {
+        var saveFile = Path.Combine(TestSettings.AssetsDirectory, "version_16/TheIsland_WP.ark");
+        using var reader = new AsaSaveReader(saveFile, TestContext.GetLogger());
+        var record = reader.ReadGameRecord(Guid.Parse(YutyrannusId), TestContext.CancellationToken);
+
+        Assert.IsTrue(record.IsCreature());
+        Assert.Contains("Yutyrannus", record.GetClassName());
+    }
+
+    [TestMethod]
     [DataRow("/Game/PrimalEarth/Items/Raft/Raft_BP.Raft_BP_C")]
     [DataRow("/Game/Genesis/Dinos/TEKHoverSkiff/TekHoverSkiff_Character_BP.TekHoverSkiff_Character_BP_C")]
     [DataRow("/Game/Water/Vessels/Galleon/GalleonShipBP.GalleonShipBP_C")]
@@ -209,12 +220,20 @@ public class CreatureTests : SaveTests
     [TestMethod]
     public void AsaSaveGame_KeepsCryopoddedCopiesOfTheSameCreature()
     {
-        // Aberration_14 has two cryopods holding the same creature
-        var saveFile = Path.Combine(TestSettings.AssetsDirectory, "version_14/Aberration_14.ark");
+        var saveFile = Path.Combine(TestSettings.AssetsDirectory, "version_16/TheIsland_WP.ark");
         var saveGame = AsaSaveGame.ReadFrom(saveFile, TestContext.GetLogger(), cancellationToken: TestContext.CancellationToken);
 
-        Assert.HasCount(65, saveGame.CryopoddedCreatures);
-        Assert.AreEqual(64, saveGame.CryopoddedCreatures.Values.Select(c => c.Id).Distinct().Count());
+        Assert.HasCount(172, saveGame.CryopoddedCreatures);
+        Assert.AreEqual(171, saveGame.CryopoddedCreatures.Values.Select(c => c.Id).Distinct().Count());
+
+        var original = saveGame.CryopoddedCreatures.Single(p => p.Value.TamedName == "Original");
+        var duplicate = saveGame.CryopoddedCreatures.Single(p => p.Value.TamedName == "Duplicate");
+        Assert.AreNotEqual(original.Key, duplicate.Key);
+        Assert.AreEqual(original.Value.Id, duplicate.Value.Id);
+        Assert.IsNotNull(original.Value.DinoId);
+        Assert.AreEqual(original.Value.DinoId, duplicate.Value.DinoId);
+        Assert.Contains("Para_Character_BP", original.Value.ClassName);
+        Assert.AreEqual(original.Value.ClassName, duplicate.Value.ClassName);
 
         // keyed by the pod holding each copy
         var records = ReadGameRecords(saveFile);
@@ -224,7 +243,7 @@ public class CreatureTests : SaveTests
     [TestMethod]
     public void AsaSaveGame_CryopoddedCreaturesWearTheirSaddles()
     {
-        var saveFile = Path.Combine(TestSettings.AssetsDirectory, "version_14/TheIsland_14.ark");
+        var saveFile = Path.Combine(TestSettings.AssetsDirectory, "version_14/TheIsland_WP.ark");
         var saveGame = AsaSaveGame.ReadFrom(saveFile, TestContext.GetLogger(), cancellationToken: TestContext.CancellationToken);
 
         var saddled = saveGame.CryopoddedCreatures.Values.Count(c => c.Inventory?.Items.Values.Any(i => i.ClassName.Contains("Saddle")) == true);

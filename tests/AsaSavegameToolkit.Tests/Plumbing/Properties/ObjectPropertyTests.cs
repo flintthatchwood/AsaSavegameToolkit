@@ -49,6 +49,65 @@ public class ObjectPropertyTests : SaveTests
     }
 
     [TestMethod]
+    [DataRow((short)13, (short)0x0001)]
+    [DataRow((short)13, (short)0x0100)]
+    [DataRow((short)14, (short)0x0001)]
+    [DataRow((short)14, (short)0x0100)]
+    [DataRow((short)16, (short)0x0001)]
+    [DataRow((short)16, (short)0x0100)]
+    public void World_PathReference_ReadsFNameWithoutConsumingTheNextValue(short saveVersion, short marker)
+    {
+        const string path = "/Game/Extinction/WeaponDinoCryopod/SM_DinoCryopod.SM_DinoCryopod";
+        using var stream = new MemoryStream();
+        using (var writer = new BinaryWriter(stream, System.Text.Encoding.UTF8, leaveOpen: true))
+        {
+            writer.Write(marker);
+            writer.Write(17);
+            writer.Write(0);
+            writer.Write(0x12345678);
+        }
+        stream.Position = 0;
+        using var archive = new AsaArchive(NullLogger.Instance, stream, "synthetic-world")
+        {
+            SaveVersion = saveVersion,
+            NameTable = new Dictionary<int, string> { [17] = path }
+        };
+
+        var reference = ObjectReference.Read(archive);
+
+        Assert.IsTrue(reference.IsPath);
+        Assert.AreEqual(path, reference.Value);
+        Assert.AreEqual(10L, archive.Position);
+        Assert.AreEqual(0x12345678, archive.ReadInt32());
+    }
+
+    [TestMethod]
+    [DataRow("50e9e8ef-4983-34ae-f92a-e0a0dd157281")]
+    [DataRow("891be092-471a-70f6-7c41-58b71e3721c3")]
+    public void Version16_DroppedCryopod_ReadsMeshPathAndFollowingProperty(string objectId)
+    {
+        using var archive = GetArchive("version_16/LostColony_WP.ark", "game", objectId);
+        archive.Position = 178;
+
+        var property = Property.Read(archive) as ObjectProperty;
+
+        Assert.IsNotNull(property);
+        Assert.AreEqual("NetDroppedMeshOverride", property.Tag.Name.FullName);
+        Assert.IsTrue(property.Value.IsPath);
+        Assert.AreEqual("/Game/Extinction/WeaponDinoCryopod/SM_DinoCryopod.SM_DinoCryopod", property.Value.Value);
+        Assert.AreEqual(213L, archive.Position);
+
+        var scale = Property.Read(archive) as StructProperty;
+        Assert.IsNotNull(scale);
+        Assert.AreEqual("NetDroppedMeshOverrideScale3D", scale.Tag.Name.FullName);
+        var vector = Assert.IsInstanceOfType<FVector>(scale.Value);
+        Assert.AreEqual(2d, vector.X);
+        Assert.AreEqual(2d, vector.Y);
+        Assert.AreEqual(2d, vector.Z);
+        Assert.AreEqual(286L, archive.Position);
+    }
+
+    [TestMethod]
     [DataRow((short)13)]
     [DataRow((short)14)]
     public void Cryopod_PathReference_IsAnInlineString_EvenWithANameTable(short saveVersion)

@@ -36,6 +36,14 @@ Simple properties store single primitive values in ARK save files. These are the
 
 Complex properties require conditional processing or have multiple or a variable number of 
 
+### World object references
+
+An `ObjectProperty` in a world save contains a two-byte discriminator followed by either a 16-byte object GUID (`00 00`) or an 8-byte name-table `FName` path (`00 01`). The reader also accepts the `01 00` path marker for compatibility.
+
+The v16 Lost Colony fixture has two dropped cryopods whose `NetDroppedMeshOverride` values use `00 01` followed by the mesh path `/Game/Extinction/WeaponDinoCryopod/SM_DinoCryopod.SM_DinoCryopod`. Each payload is 10 bytes, not an 18-byte GUID reference.
+
+Standalone profile/tribe and cryopod archives have separate object-reference layouts and do not use this world-save discriminator.
+
 ## Binary Structure
 
 ### Standard Format

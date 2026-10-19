@@ -37,8 +37,8 @@ public class ObjectReference
     /// <summary>
     /// Reads an ObjectReference from the archive.
     /// Format for v13+ (with name table):
-    /// - Int16 (1 = path/FName, 0 = GUID)
-    /// - If 1: FName (via name table)
+    /// - Int16 (0x0100 or 0x0001 = path/FName, 0 = GUID)
+    /// - If path: FName (via name table)
     /// - If 0: Guid (16 bytes)
     /// </summary>
     public static ObjectReference Read(Readers.AsaArchive archive)
@@ -55,7 +55,7 @@ public class ObjectReference
 
         var referenceType = archive.ReadInt16();
         
-        if (referenceType == 1)
+        if (referenceType is 0x0001 or 0x0100)
         {
             // Path reference (FName)
             return new ObjectReference

@@ -28,10 +28,11 @@ public class GameModeCustomBytesTests : SaveTests
     }
 
     [TestMethod]
-    [DataRow("version_14/Aberration_14.ark", 2)]
-    [DataRow("version_14/TheIsland_14.ark", 2)]
     [DataRow("version_14/LostColony_WP.ark", 1)]
-    public void Version14_GameModeCustomBytes_ReadsEveryProfile(string savePath, int profileCount)
+    [DataRow("version_16/Genesis_WP.ark", 2)]
+    [DataRow("version_16/LostColony_WP.ark", 2)]
+    [DataRow("version_16/TheIsland_WP.ark", 2)]
+    public void GameModeCustomBytes_ReadsEveryProfile(string savePath, int profileCount)
     {
         using var archive = GetArchive(savePath, "custom", "GameModeCustomBytes");
 

@@ -15,6 +15,7 @@ public class SaveHeaderRecordTests : SaveTests
     [DataRow((short)13)]
     [DataRow((short)14)]
     [DataRow((short)15)]
+    [DataRow((short)16)]
     public void Read_DelegatesAcrossHeaderLayoutBoundaries(short saveVersion)
     {
         using var stream = new MemoryStream();
@@ -82,6 +83,24 @@ public class SaveHeaderRecordTests : SaveTests
 
         var saveHeader = SaveHeaderRecord.Read(archive);
         Assert.AreEqual("TheIsland_WP", saveHeader.MapName);
+    }
+
+    [TestMethod]
+    [DataRow("Aberration_WP")]
+    [DataRow("Extinction_WP")]
+    [DataRow("Genesis_WP")]
+    [DataRow("LostColony_WP")]
+    [DataRow("ScorchedEarth_WP")]
+    [DataRow("TheCenter_WP")]
+    [DataRow("TheIsland_WP")]
+    public void CanRead_Version16_SaveHeader(string mapName)
+    {
+        using var archive = GetArchive($"version_16/{mapName}.ark", "custom", "SaveHeader");
+
+        var header = SaveHeaderRecord.Read(archive);
+
+        Assert.AreEqual((short)16, header.SaveVersion);
+        Assert.AreEqual(mapName, header.MapName);
     }
 
     [TestMethod]

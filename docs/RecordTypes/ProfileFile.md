@@ -33,6 +33,16 @@ A profile file typically contains these objects:
 1. **PrimalPlayerDataBP_C** - Main player character data
 2. **Map reference** - Current or last map (e.g., "TheIsland_WP")
 
+### Secondary profile objects
+
+The version-7 profile archives embedded in the Genesis v16 fixture contain three object descriptors: the primary player data, `PrimalBuffPersistentData_MissionData`, and `PrimalBuffPersistentData`. The primary object's `MyPersistentBuffDatas` array references the latter objects by archive-local indices 1 and 2.
+
+The mission-data object's `MissionData` array stores a `MissionTag` and JSON `SerializedData` per entry. Mission completions use `"complete": true`; biome glitch counters use `"completeglitches"`. The newer Genesis profile contains three completed missions and two repaired Lunar glitches, while its primary object's `LatestMissionScores` contains only two leaderboard entries. The separate persistent-buff object identifies `Buff_CreativeModeHelper_C` through `ForPrimalBuffClassString`.
+
+`Player.Genesis1MissionScores` exposes the primary object's valid `MyData.LatestMissionScores` entries as a dictionary keyed by full mission tag. Each `MissionScore` preserves both `IntValue` and `FloatValue` from the saved `BestScore`, not `LatestScore`. The fields are not combined or compared: higher is not necessarily better for every mission. The newer fixture has Dolphin Race `(1, 161.25484)` and the Bog gauntlet `(0, 755014.2)`. Invalid entries are excluded; absent score data produces an empty dictionary. Numeric fields omitted from a saved score retain their serialized default of zero.
+
+`ArkProfileRecord.Read` currently returns only the primary object. The secondary objects remain in the fixture's raw embedded profile blobs but are not exposed by the normal profile reader.
+
 ## Player Data Properties (Common)
 
 The PrimalPlayerDataBP_C object contains properties such as:
@@ -59,12 +69,23 @@ The PrimalPlayerDataBP_C object contains properties such as:
   - **SkinTone** (FloatProperty) - Skin tone value
 
 ### Progression
+- **HexagonCount** (IntProperty, on the primary profile object) - Current hexagon balance, exposed as `Player.Hexagons`. Pawn records use `PlayerHexagonCount`; when a profile is matched with a pawn, an explicitly saved pawn balance takes precedence, including zero. An absent pawn balance preserves the profile balance. Records without either balance default to zero.
 - **UnlockedEngrams** (ArrayProperty[ObjectProperty]) - Learned engrams (blueprints)
 - **DefaultItemSlotClasses** (ArrayProperty[ObjectProperty]) - Default hotbar layout
 - **PerMapExplorerNoteUnlocks** (MapProperty) - Explorer notes found per map
 - **TamedDinoCount** (IntProperty) - Lifetime tamed dino count
 - **DinoKillCount** (IntProperty) - Lifetime dino kills
 - **PlayerKillCount** (IntProperty) - Lifetime player kills
+
+### Skills and milestones
+
+These properties are nested in `MyData.MyPersistentCharacterStats`:
+
+- **PlayerState_TotalSkillPoints** / **PlayerState_FreeSkillPoints** (IntProperty) - Total earned and unspent skill points.
+- **SkillUnlocks** / **SkillRanks** (paired arrays) - Skill-name tags and their ranks.
+- **CurrentMilestones** / **MilestoneProgress** (paired arrays) - Task-name tags and saved progress fractions, not UI resource counts. The v16 Lost Colony fixture stores `Task.LC.HarvestRawMetalA` at approximately `0.236` (118/500) and `Task.TravelTotalA` at approximately `0.336829` (rounded to 337/1,000 in the UI). Zero-progress objectives visible in the screenshots are absent from these arrays.
+- **CompletedMilestones** (ArrayProperty) - Completed task-name tags.
+- **MilestoneLevelsAndIndexes** (ArrayProperty of structs) - Category `Name` and `LevelAndIndex` (`IntPoint`). The same fixture stores Global as `(2, 15)` and Lost Colony as `(0, 21)`. These are separate from task completions; the screenshot category headings must not be treated as counts of `CompletedMilestones`. These category positions are available through the raw profile properties, not the typed `Player` model.
 
 ### Spawn & Respawn
 - **SpawnRegionIndex** (IntProperty) - Last spawn region
