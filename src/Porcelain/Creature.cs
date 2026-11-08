@@ -135,7 +135,8 @@ public class Creature
     /// <summary>
     /// Color region indices (up to 6 regions, indexed 0-5).
     /// Each value is a color ID (0 = default/no color).
-    /// Corresponds to ArrayProperty(ByteProperty) "ColorSetIndices".
+    /// Corresponds to indexed ByteProperty entries named "ColorSetIndices".
+    /// Unserialized regions are null.
     /// </summary>
     public byte?[] ColorRegions { get; set; } = [];
 
@@ -178,16 +179,14 @@ public class Creature
         var mutationsFemale = properties.Get<int>("RandomMutationsFemale");
         var baseLevel = record.GetBaseLevel();
         var extraCharacterLevel = properties.Get<int>("ExtraCharacterLevel");
-        var colorRegions = new byte?[12];
-        if (properties.TryGet<IList>("ColorSetIndices", out var arrayElements))
+        var colorRegions = new byte?[6];
+        for (var region = 0; region < colorRegions.Length; region++)
         {
-            foreach(var element in arrayElements.OfType<ByteProperty>())
+            if (properties.TryGet<byte>("ColorSetIndices", region, out var color))
             {
-                colorRegions[element.Tag.ArrayIndex] = element.Value;
+                colorRegions[region] = color;
             }
         }
-
-
         var creature = new Creature
         {
             Id = record.Uuid,

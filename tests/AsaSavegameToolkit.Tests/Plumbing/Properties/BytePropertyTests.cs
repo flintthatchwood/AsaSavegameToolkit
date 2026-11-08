@@ -1,4 +1,7 @@
 using AsaSavegameToolkit.Plumbing.Properties;
+using AsaSavegameToolkit.Plumbing.Readers;
+using AsaSavegameToolkit.Plumbing.Utilities;
+using AsaSavegameToolkit.Porcelain;
 using AsaSavegameToolkit.Tests.Helpers;
 
 namespace AsaSavegameToolkit.Tests.Plumbing.Properties;
@@ -7,6 +10,35 @@ namespace AsaSavegameToolkit.Tests.Plumbing.Properties;
 public class BytePropertyTests : SaveTests
 {
     // ByteProperty == B2 B4 4F 96
+
+    [TestMethod]
+    [DynamicData(nameof(CreatureColorCases.All), typeof(CreatureColorCases))]
+    public void ColorSetIndices_MatchAllRegions(int version, string objectId, bool isCryopodded, byte?[] expected)
+    {
+        var saveFile = Path.Combine(TestSettings.AssetsDirectory, $"version_{version}", "TheIsland_WP.ark");
+        using var reader = new AsaSaveReader(saveFile, TestContext.GetLogger());
+        var record = reader.ReadGameRecord(Guid.Parse(objectId), TestContext.CancellationToken);
+        if (isCryopodded)
+        {
+            Assert.IsTrue(record.HasCryoCreature());
+            using var cryoReader = new CryopodReader(TestContext.GetLogger());
+            record = cryoReader.ReadCryopodData(record, TestContext.CancellationToken)
+                .SelectMany(set => set).Single(r => r.IsCreature());
+        }
+
+        var colors = record.Properties.Where(p => p.Tag.Name.FullName == "ColorSetIndices").ToArray();
+        Assert.HasCount(expected.Count(c => c.HasValue), colors);
+        foreach (var property in colors)
+        {
+            var color = Assert.IsInstanceOfType<ByteProperty>(property);
+            Assert.IsTrue(color.Tag.ArrayIndex >= 0 && color.Tag.ArrayIndex < expected.Length);
+            Assert.AreEqual(expected[color.Tag.ArrayIndex], (byte?)color.Value, $"Region {color.Tag.ArrayIndex}");
+        }
+        for (var region = 0; region < expected.Length; region++)
+        {
+            Assert.AreEqual(expected[region].HasValue, colors.Any(p => p.Tag.ArrayIndex == region), $"Region {region}");
+        }
+    }
 
     [TestMethod]
     public void CanRead_Verion13_ByteProperty()

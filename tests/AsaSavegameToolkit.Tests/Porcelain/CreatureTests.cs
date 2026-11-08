@@ -18,6 +18,21 @@ public class CreatureTests : SaveTests
     private const string YutyrannusId = "fe4b48ad-4d96-de0d-98e8-9d9b75e8413a";
 
     [TestMethod]
+    [DynamicData(nameof(CreatureColorCases.All), typeof(CreatureColorCases))]
+    public void ColorRegions_MatchAllRegions(int version, string objectId, bool isCryopodded, byte?[] expected)
+    {
+        var saveFile = Path.Combine(TestSettings.AssetsDirectory, $"version_{version}", "TheIsland_WP.ark");
+        var saveGame = AsaSaveGame.ReadFrom(saveFile, TestContext.GetLogger(), cancellationToken: TestContext.CancellationToken);
+        var id = Guid.Parse(objectId);
+        var creature = isCryopodded
+            ? saveGame.CryopoddedCreatures[id]
+            : saveGame.WildCreatures.TryGetValue(id, out var wild) ? wild : saveGame.TamedCreatures[id];
+
+        Assert.AreEqual(isCryopodded, creature.IsInCryo);
+        CollectionAssert.AreEqual(expected, creature.ColorRegions);
+    }
+
+    [TestMethod]
     public void IsCreature_Version13_ReturnsTrue()
     {
         var saveFile = Path.Combine(TestSettings.AssetsDirectory, "version_13/TheIsland_WP.ark");
