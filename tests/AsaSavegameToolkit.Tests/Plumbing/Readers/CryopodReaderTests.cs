@@ -1,4 +1,5 @@
 using AsaSavegameToolkit.Plumbing.Readers;
+using AsaSavegameToolkit.Plumbing.Records;
 using AsaSavegameToolkit.Plumbing.Utilities;
 using AsaSavegameToolkit.Porcelain;
 using AsaSavegameToolkit.Tests.Helpers;
@@ -46,5 +47,38 @@ public class CryopodReaderTests : SaveTests
             }
             Assert.IsTrue(set.Any(r => r.IsCreature()), "Expected at least one parsed creature record");
         }
+    }
+
+    [TestMethod]
+    [DataRow(1)]
+    [DataRow(3)]
+    public void ReadCryopodData_SkipsEmptySlots(int slotLength)
+    {
+        // a Gargoyle cryopod on a server save had five extra slots holding a single 0 byte each
+        using var reader = new AsaSaveReader(Path.Combine(TestSettings.AssetsDirectory, KnownSaveFile), TestContext.GetLogger());
+        var pod = reader.ReadGameRecords(TestContext.CancellationToken)[Guid.Parse(KnownCryopodUuid)];
+        using var cryopodReader = new CryopodReader(TestContext.GetLogger());
+        var expected = cryopodReader.ReadCryopodData(pod).Count;
+
+        var data = pod.Properties.Get<object[]>("CustomItemDatas")!.OfType<CustomItemDataRecord>().First();
+        data.CustomDataBytes = [.. data.CustomDataBytes, new byte[slotLength], new byte[slotLength], new byte[slotLength], new byte[slotLength], new byte[slotLength]];
+
+        Assert.HasCount(expected, cryopodReader.ReadCryopodData(pod));
+    }
+
+    [TestMethod]
+    public void ReadCryopodData_FourByteSlotStillUsesTheParser()
+    {
+        using var reader = new AsaSaveReader(Path.Combine(TestSettings.AssetsDirectory, KnownSaveFile), TestContext.GetLogger());
+        var pod = reader.ReadGameRecords(TestContext.CancellationToken)[Guid.Parse(KnownCryopodUuid)];
+        using var cryopodReader = new CryopodReader(TestContext.GetLogger());
+        var expected = cryopodReader.ReadCryopodData(pod).Count;
+        var data = pod.Properties.Get<object[]>("CustomItemDatas")!.OfType<CustomItemDataRecord>().First();
+        data.CustomDataBytes = [.. data.CustomDataBytes, [7, 0, 0, 0]];
+
+        var sets = cryopodReader.ReadCryopodData(pod);
+
+        Assert.HasCount(expected + 1, sets);
+        Assert.IsEmpty(sets[^1]);
     }
 }
