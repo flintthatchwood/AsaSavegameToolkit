@@ -35,6 +35,9 @@ namespace AsaSavegameToolkit.Plumbing.Readers;
 /// </summary>
 public sealed class CryopodReader : IDisposable
 {
+    // A cryo slot needs four bytes for its version.
+    private const int MinimumBlobLength = sizeof(int);
+
     private readonly ILogger _logger;
     private readonly AsaReaderSettings _settings;
 
@@ -131,9 +134,9 @@ public sealed class CryopodReader : IDisposable
                 cancellationToken.ThrowIfCancellationRequested();
 
                 var blob = customItemData.CustomDataBytes[index];
-                if (blob.Length == 0)
+                if (blob.Length < MinimumBlobLength)
                 {
-                    continue; // skip empty blobs
+                    continue; // skip empty slots
                 }
 
                 // Dump raw compressed blob beside the outer game record
